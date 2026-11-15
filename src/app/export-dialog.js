@@ -34,8 +34,8 @@ export async function openExport(app, o) {
   const bw = el('input', { type: 'checkbox', checked: opts.bw, onchange: () => { opts.bw = bw.checked; } });
   const author = el('input', { class: 'input', value: opts.author || '', maxlength: 60, oninput: () => { opts.author = author.value; } });
   paperBox.append(
-    el('label', { class: 'field' }, ['Paper', segmented([{ value: 'A4', label: 'A4' }, { value: 'A3', label: 'A3' }], opts.paper, (v) => { opts.paper = v; })]),
-    el('label', { class: 'field' }, ['Orientation', segmented([{ value: 'landscape', label: 'Landscape' }, { value: 'portrait', label: 'Portrait' }], opts.orientation, (v) => { opts.orientation = v; })]),
+    el('div', { class: 'field', role: 'group', 'aria-label': 'Paper' }, ['Paper', segmented([{ value: 'A4', label: 'A4' }, { value: 'A3', label: 'A3' }], opts.paper, (v) => { opts.paper = v; })]),
+    el('div', { class: 'field', role: 'group', 'aria-label': 'Orientation' }, ['Orientation', segmented([{ value: 'landscape', label: 'Landscape' }, { value: 'portrait', label: 'Portrait' }], opts.orientation, (v) => { opts.orientation = v; })]),
     el('label', { class: 'field' }, ['Scale', scaleSel]),
     el('label', { class: 'check' }, [bw, 'Black and white']),
     el('label', { class: 'field' }, ['Author (optional)', author]),
@@ -46,7 +46,7 @@ export async function openExport(app, o) {
     paperBox.hidden = !(f === 'pdf' || f === 'svg');
     note.textContent = { pdf: 'Print at 100 % (actual size) for exact scale.', svg: 'Vector drawing in paper millimetres.', dxf: 'CAD file in metres at 1:1 with layers.', glb: 'Oriented, calibrated 3D model (+Y up, metres).', csv: 'Markup list for Excel / Numbers (German format).' }[f];
   };
-  body.append(el('label', { class: 'field' }, ['Format', segmented(formats, opts.format, updateFormat)]), paperBox, note);
+  body.append(el('div', { class: 'field', role: 'group', 'aria-label': 'Format' }, ['Format', segmented(formats, opts.format, updateFormat)]), paperBox, note);
   updateFormat(opts.format);
   const go = await modal({ title: 'Export', body, actions: [{ label: 'Cancel', value: false }, { label: 'Create file', value: true, primary: true }] });
   if (!go) return;

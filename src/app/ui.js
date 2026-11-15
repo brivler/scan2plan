@@ -32,7 +32,8 @@ export function el(tag, attrs = {}, children = []) {
  * @param {object} [extra] extra attributes
  */
 export function toolButton(iconName, label, onClick, extra = {}) {
-  const b = el('button', { type: 'button', class: `btn ${extra.class || ''}`, 'aria-label': label, onclick: onClick, ...extra }, []);
+  const { class: cls = '', ...attrs } = extra;
+  const b = el('button', { type: 'button', class: `btn ${cls}`, 'aria-label': label, onclick: onClick, ...attrs }, []);
   b.innerHTML = `${icon(iconName)}<span>${escapeHtml(label)}</span>`;
   return b;
 }

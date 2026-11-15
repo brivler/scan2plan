@@ -2,7 +2,7 @@
  * Projects tab: list, new project + import, open, rename, duplicate, delete, backup,
  * settings (storage usage, REQ-011) and the first-run install hint (REQ-060). Browser-only.
  */
-import { el, toolButton, modal, promptDialog, confirmDialog, alertDialog, toast, progressOverlay, showError, escapeHtml, withBusy } from './ui.js';
+import { el, toolButton, modal, promptDialog, confirmDialog, alertDialog, toast, progressOverlay, showError, withBusy } from './ui.js';
 import { icon } from './icons.js';
 import { showHelp } from './help.js';
 import { checkFileSize, MESSAGES } from '../core/errors.js';
@@ -55,7 +55,7 @@ export function createProjectsView(app, root) {
         thumb,
         el('div', {}, [
           el('div', { class: 'name' }, p.name),
-          el('div', { class: 'muted' }, `${new Date(p.updatedAt).toLocaleDateString('en-GB')} · ${(p.storageBytes / 1048576).toFixed(1)} MB · ${p.annotations.length} items`),
+          el('div', { class: 'muted' }, `${p.updatedAt.slice(0, 10)} · ${(p.storageBytes / 1048576).toFixed(1)} MB · ${p.annotations.length} ${p.annotations.length === 1 ? 'item' : 'items'}`),
         ]),
         el('div', { class: 'actions' }, [
           el('button', { type: 'button', class: 'btn primary', onclick: () => open(p.id) }, 'Open'),
@@ -208,7 +208,7 @@ export function createProjectsView(app, root) {
       ]),
     );
     if (!persisted) body.append(el('p', { class: 'warn' }, NOT_PERSISTENT_TEXT));
-    if (app.session) body.append(el('p', { class: 'muted' }, `Open project: ${escapeHtml(app.session.project.name)} — ${calibrationText(app.session.edit.state.calibration)}`));
+    if (app.session) body.append(el('p', { class: 'muted' }, `Open project: ${app.session.project.name} — ${calibrationText(app.session.edit.state.calibration)}`));
     body.append(el('p', { class: 'muted' }, 'Scan2Plan works offline. No data leaves this iPhone unless you share an export.'));
     await modal({ title: 'Settings', body, actions: [{ label: 'Close', value: true, primary: true }] });
   }
@@ -216,7 +216,7 @@ export function createProjectsView(app, root) {
   return {
     show() {
       app.setTitle('Projects');
-      app.setActions([toolButton('settings', 'Settings', settings, { class: 'icon-only' }), toolButton('help', 'Help', showHelp, { class: 'icon-only' })]);
+      app.setActions([toolButton('settings', 'Settings', settings, { class: 'compact' }), toolButton('help', 'Help', showHelp, { class: 'compact' })]);
       render();
     },
   };

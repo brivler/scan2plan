@@ -17,9 +17,9 @@ export async function newWallDialog(init = {}) {
   const custom = el('input', { class: 'input', inputmode: 'decimal', value: (thickness * 100).toFixed(1), 'aria-label': 'Thickness in cm' });
   const note = el('input', { class: 'input', maxlength: NOTE_MAX, 'aria-label': 'Note' });
   const body = el('div', {}, [
-    el('label', { class: 'field' }, ['Thickness (German masonry sizes)', segmented(NEW_WALL_PRESETS.map((t) => ({ value: t, label: `${+(t * 100).toFixed(1)}` })), thickness, (v) => { thickness = v; custom.value = (v * 100).toFixed(1); })]),
+    el('div', { class: 'field', role: 'group', 'aria-label': 'Thickness (German masonry sizes)' }, ['Thickness (German masonry sizes)', segmented(NEW_WALL_PRESETS.map((t) => ({ value: t, label: `${+(t * 100).toFixed(1)}` })), thickness, (v) => { thickness = v; custom.value = (v * 100).toFixed(1); })]),
     el('label', { class: 'field' }, ['Thickness in cm (1–100)', custom]),
-    el('label', { class: 'field' }, ['Alignment to the drawn line', segmented([{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }], align, (v) => { align = v; })]),
+    el('div', { class: 'field', role: 'group', 'aria-label': 'Alignment to the drawn line' }, ['Alignment to the drawn line', segmented([{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }], align, (v) => { align = v; })]),
     el('label', { class: 'field' }, ['Note (optional)', note]),
   ]);
   const ok = await modal({

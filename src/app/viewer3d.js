@@ -64,6 +64,7 @@ export function create3DView(app, root) {
   let picks = [];
   let lastMeasure = null;
   let pending = false;
+  let needsFraming = false;
 
   function requestRender() {
     if (pending) return;
@@ -140,7 +141,7 @@ export function create3DView(app, root) {
     scene.add(model);
     applyTransform(session);
     applyMode();
-    resetView();
+    needsFraming = true; // frame once the canvas has its real size (tab may be hidden now)
   }
 
   function applyTransform(session) {
@@ -182,11 +183,15 @@ export function create3DView(app, root) {
 
   /** Camera presets: reset / top / front / right / back / left. */
   function viewFrom(dir) {
+    render(); // make sure the aspect ratio is current
     const b = modelBox();
     const c = b.getCenter(new THREE.Vector3());
-    const r = Math.max(1, b.getSize(new THREE.Vector3()).length() * 0.75);
+    const r = Math.max(0.5, b.getSize(new THREE.Vector3()).length() / 2); // bounding-sphere radius
+    const vfov = (persp.fov * Math.PI) / 180;
+    const hfov = 2 * Math.atan(Math.tan(vfov / 2) * (persp.aspect || 1));
+    const dist = (r / Math.sin(Math.min(vfov, hfov) / 2)) * 1.05;
     const offsets = { reset: [1, 0.9, -1.2], top: [0, 1, 0.0001], front: [0, 0, -1], right: [1, 0, 0], back: [0, 0, 1], left: [-1, 0, 0] };
-    const o = new THREE.Vector3(...offsets[dir]).normalize().multiplyScalar(r / Math.tan((persp.fov * Math.PI) / 360) * 0.6);
+    const o = new THREE.Vector3(...offsets[dir]).normalize().multiplyScalar(dist);
     persp.position.copy(c).add(o);
     controls.target.copy(c);
     ortho.position.copy(persp.position);
@@ -447,6 +452,7 @@ export function create3DView(app, root) {
       updateSectionLine();
       drawPicks();
       updateUndo();
+      if (needsFraming) requestAnimationFrame(() => { needsFraming = false; resetView(); });
       requestRender();
     },
     hide() { setTool(null); },

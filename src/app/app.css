@@ -89,7 +89,8 @@ h3 { font-size: 16px; margin: 16px 0 6px; }
 .btn.danger { color: var(--danger); }
 .btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 .btn:disabled { opacity: 0.45; }
-.btn.icon-only { padding: 6px; }
+.btn.compact { flex-direction: column; gap: 1px; font-size: 11px; padding: 2px 6px; min-height: 44px; }
+.btn.compact svg { width: 20px; height: 20px; }
 .btn.block { width: 100%; }
 
 .toolbar {
@@ -104,8 +105,8 @@ h3 { font-size: 16px; margin: 16px 0 6px; }
 
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row > .grow { flex: 1; min-width: 0; }
-label.field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: 14px; color: var(--muted); }
-label.field input, label.field select, label.field textarea, .input {
+.field { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: 14px; color: var(--muted); }
+.field input, .field select, .field textarea, .input {
   min-height: 44px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface); color: var(--text); width: 100%;
 }
