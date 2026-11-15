@@ -11,7 +11,7 @@ import { identity, multiply, scaling } from '../core/mat4.js';
 export const DEFAULT_SETTINGS = Object.freeze({
   planHeight: 1.0, simplify: 0.01, snap: true, showDims: true, showBelow: false,
   sectionDepth: 5, paper: 'A4', orientation: 'landscape', scale: 'fit', bw: false,
-  terrainCell: 0.05, author: '',
+  terrainCell: 0.05, author: '', orientCheck: null,
 });
 
 /**

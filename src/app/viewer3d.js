@@ -21,6 +21,9 @@ const MODE_LABEL = { color: 'Colour', grey: 'Grey', wire: 'Wire', xray: 'X-ray' 
 export function create3DView(app, root) {
   const wrap = el('div', { class: 'canvas-wrap' });
   const hud = el('div', { class: 'hud' });
+  const hintBox = el('div');
+  const noticeBox = el('div');
+  hud.append(noticeBox, hintBox);
   const toolbar = el('div', { class: 'toolbar bottom' });
   root.append(wrap, toolbar);
   wrap.append(hud);
@@ -355,7 +358,7 @@ export function create3DView(app, root) {
   }
 
   function setHint(text, extra = []) {
-    hud.replaceChildren(...(text ? [el('div', { class: 'pill', role: 'status' }, [text, ...extra.map((x) => el('span', {}, [' ', x]))])] : []));
+    hintBox.replaceChildren(...(text ? [el('div', { class: 'pill', role: 'status' }, [text, ...extra.map((x) => el('span', {}, [' ', x]))])] : []));
   }
 
   function setTool(t, hint) {
@@ -367,6 +370,23 @@ export function create3DView(app, root) {
   }
 
   const toolBtn = (iconName, label, t, hint) => toolButton(iconName, label, () => setTool(tool === t ? null : t, hint), { 'data-tool': t });
+
+  /**
+   * Persistent "check orientation" card after an OBJ/PLY import (DEF-20). It stays (also after
+   * reopening) until the user confirms or opens Orient.
+   */
+  function renderOrientNotice() {
+    const axis = app.session?.settings.orientCheck;
+    if (!axis) { noticeBox.replaceChildren(); return; }
+    const done = () => { app.session.setSettings({ orientCheck: null }); renderOrientNotice(); };
+    noticeBox.replaceChildren(el('div', { class: 'pill', role: 'region', 'aria-label': 'Check orientation' }, [
+      el('div', {}, `Check orientation: OBJ/PLY files have no fixed up direction. Detected up axis: ${axis}. The floor should be at the bottom.`),
+      el('div', { class: 'row', style: 'margin-top:6px' }, [
+        el('button', { type: 'button', class: 'btn', onclick: () => { done(); orientSheet(); } }, 'Fix: Up = …'),
+        el('button', { type: 'button', class: 'btn', onclick: done }, 'Looks right'),
+      ]),
+    ]));
+  }
 
   async function orientSheet() {
     const body = el('div');
@@ -466,6 +486,7 @@ export function create3DView(app, root) {
       app.setTitle(s ? s.project.name : '3D');
       app.setActions([]);
       updateSectionLine();
+      renderOrientNotice();
       drawPicks();
       updateUndo();
       if (needsFraming) requestAnimationFrame(() => { needsFraming = false; resetView(); });

@@ -125,15 +125,18 @@ export function progressOverlay(title, onCancel) {
   const track = el('div', { class: 'progress indeterminate' }, bar);
   const label = el('p', { class: 'muted' }, 'Starting…');
   const box = el('div', { class: 'modal', role: 'dialog', 'aria-label': title }, [el('h2', {}, title), track, label]);
-  if (onCancel) box.append(el('div', { class: 'modal-actions' }, el('button', { type: 'button', class: 'btn', onclick: () => onCancel() }, 'Cancel')));
+  let text = 'Working…';
+  if (onCancel) {
+    const btn = el('button', { type: 'button', class: 'btn', onclick: () => { btn.disabled = true; text = 'Cancelling…'; onCancel(); } }, 'Cancel');
+    box.append(el('div', { class: 'modal-actions' }, btn));
+  }
   const back = el('div', { class: 'modal-backdrop' }, box);
   root().append(back);
   const t0 = performance.now();
-  let text = 'Working…';
   const tick = setInterval(() => { label.textContent = `${text} · ${((performance.now() - t0) / 1000).toFixed(0)} s`; }, 250);
   return {
     update(value, l) {
-      if (l) text = l;
+      if (l && text !== 'Cancelling…') text = l;
       if (value > 0 && value < 1) { track.classList.remove('indeterminate'); bar.style.width = `${Math.round(value * 100)}%`; }
     },
     close() { clearInterval(tick); back.remove(); },

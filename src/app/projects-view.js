@@ -127,6 +127,7 @@ export function createProjectsView(app, root) {
     let load;
     try {
       const buffer = await file.arrayBuffer();
+      if (cancelled) { ov.close(); return false; } // Cancel during the file read (DEF-22)
       load = await app.client.call('load', { buffer, transform: null }, { transfer: [buffer], onProgress: (v, l) => ov.update(v, l) });
     } catch (e) {
       ov.close();
@@ -150,8 +151,9 @@ export function createProjectsView(app, root) {
         project.orientation = orient.matrix;
         project.transform = orient.matrix;
         if (load.format === 'obj' || load.format === 'ply') {
+          // OBJ/PLY have no fixed up direction: ask the user to confirm in 3D (DEF-20)
           const up = orient.up.findIndex((v) => v !== 0);
-          if (up !== 1 || orient.up[1] < 0) toast(`Up axis detected as ${orient.up[up] > 0 ? '+' : '−'}${'XYZ'[up]}. If the model looks sideways, use 3D → Orient → Up = …`, 6000);
+          project.settings.orientCheck = `${orient.up[up] > 0 ? '+' : '−'}${'XYZ'[up]}`;
         }
       }
       project.origin = load.origin;
@@ -205,8 +207,10 @@ export function createProjectsView(app, root) {
     const ov = progressOverlay('Opening project', () => { cancelled = true; app.client.cancel(); });
     try {
       const p = await getProject(app.db, id, { withSource: true });
+      if (cancelled) { ov.close(); return false; } // Cancel during the stored-scan read (DEF-22)
       if (!p || !p.sourceFile) throw new Error('The scan file of this project is missing. Restore it from a backup.');
       const buffer = await p.sourceFile.arrayBuffer();
+      if (cancelled) { ov.close(); return false; }
       const load = await app.client.call('load', { buffer, transform: p.transform }, { transfer: [buffer], onProgress: (v, l) => ov.update(v, l) });
       ov.close();
       startSession(p, load);
