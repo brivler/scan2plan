@@ -11,10 +11,13 @@ test.beforeEach(async ({ context, page }) => {
   // Diagnostics for CI (WebKit runs only there): browser console and page errors in the log.
   page.on('console', (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
   page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`));
+  page.on('worker', (w) => { console.log(`[worker created] ${w.url()}`); w.on('close', () => console.log('[worker closed]')); });
   // Capture Web Share calls instead of opening the share sheet.
   await context.addInitScript(() => {
     navigator.canShare = () => true;
     navigator.share = async ({ files }) => { window.__shared = files.map((f) => f.name); };
+    const t0 = performance.now();
+    navigator.serviceWorker?.addEventListener('controllerchange', () => console.log(`[sw] controllerchange at ${(performance.now() - t0).toFixed(0)} ms`));
   });
 });
 
@@ -23,7 +26,14 @@ async function importRoom(page, name = 'Smoke room') {
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: /New project/ }).click();
   await (await chooser).setFiles(FIXTURE);
-  await page.getByRole('dialog', { name: 'New project' }).getByRole('textbox').fill(name);
+  const nameBox = page.getByRole('dialog', { name: 'New project' }).getByRole('textbox');
+  try {
+    await nameBox.waitFor({ timeout: 30_000 });
+  } catch (e) {
+    console.log(`[diag] ${await page.evaluate(() => JSON.stringify({ modals: [...document.querySelectorAll('.modal')].map((m) => m.innerText.slice(0, 300)), controller: !!navigator.serviceWorker.controller }))}`);
+    throw e;
+  }
+  await nameBox.fill(name);
   await page.getByRole('button', { name: 'OK' }).click();
   // first import asks for persistent storage; headless browsers deny it → one-time notice
   await page.getByRole('dialog', { name: 'Storage' }).getByRole('button', { name: 'OK' }).click({ timeout: 3000 }).catch(() => {});
