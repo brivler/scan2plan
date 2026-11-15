@@ -4,7 +4,6 @@
  * plus {id, progress} messages. Results with large arrays are transferred, not copied.
  */
 import { importScan } from '../core/import.js';
-import { ImportError } from '../core/errors.js';
 import { computeBBox, transformPositions } from '../core/mesh.js';
 import { decimateForDisplay } from '../core/decimate.js';
 import { suggestUnitScale, autoOrient, reorient, levelAtTap, alignToWall, rotate90, upAxisDelta } from '../core/orient.js';
@@ -167,7 +166,8 @@ self.onmessage = (e) => {
     const { result, transfer = [] } = ops[op](args || {}, progress);
     self.postMessage({ id, ok: true, result }, transfer);
   } catch (err) {
-    const code = err instanceof ImportError ? err.code : null;
+    // duck-typed: the code must survive even if the class identity differs between module instances
+    const code = err && typeof err.code === 'string' && /^E-IMP-\d\d$/.test(err.code) ? err.code : null;
     self.postMessage({ id, ok: false, error: { code, message: err.message || String(err) } });
   }
 };

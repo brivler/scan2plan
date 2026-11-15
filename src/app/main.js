@@ -77,7 +77,7 @@ function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   const banner = document.getElementById('update-banner');
   navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).then((reg) => {
-    reg.update().catch(() => {});
+    if (navigator.onLine !== false) reg.update().catch(() => {}); // no failed request when offline (REQ-013)
     const offer = (worker) => {
       banner.hidden = false;
       document.getElementById('update-reload').onclick = () => worker.postMessage('SKIP_WAITING');
