@@ -6,7 +6,7 @@ import { el, toolButton, modal, promptDialog, confirmDialog, alertDialog, toast,
 import { icon } from './icons.js';
 import { showHelp } from './help.js';
 import { checkFileSize, MESSAGES } from '../core/errors.js';
-import { listProjects, saveProject, getProject, deleteProject, duplicateProject, updateProject, newProject } from '../store/project.js';
+import { listProjects, saveProject, getProject, deleteProject, duplicateProject, updateProject, newProject, thumbnailRecord, thumbnailBlob } from '../store/project.js';
 import { projectFromBackup } from '../store/backup.js';
 import { Session } from './session.js';
 import { exportGlb, backupExtras } from '../export/glb.js';
@@ -55,7 +55,7 @@ export function createProjectsView(app, root) {
     thumbUrls = [];
     const thumbUrl = (blob) => { const u = URL.createObjectURL(blob); thumbUrls.push(u); return u; };
     const items = projects.map((p) => {
-      const thumb = p.thumbnail ? el('img', { src: thumbUrl(p.thumbnail), alt: '' }) : el('div', { class: 'thumb' });
+      const thumb = p.thumbnail ? el('img', { src: thumbUrl(thumbnailBlob(p.thumbnail)), alt: '' }) : el('div', { class: 'thumb' });
       return el('div', { class: 'card project' }, [
         thumb,
         el('div', {}, [
@@ -187,7 +187,7 @@ export function createProjectsView(app, root) {
     app.setSession(session);
     app.go('3d');
     setTimeout(() => app.views['3d'].captureThumbnail?.().then((blob) => {
-      if (blob) updateProject(app.db, project.id, { thumbnail: blob }).then(render);
+      if (blob) thumbnailRecord(blob).then((thumbnail) => updateProject(app.db, project.id, { thumbnail })).then(render).catch((e) => console.warn('Thumbnail not stored', e));
     }), 600);
   }
 

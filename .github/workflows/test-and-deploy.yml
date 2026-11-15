@@ -40,6 +40,16 @@ jobs:
         run: npx playwright install --with-deps webkit
       - run: npx playwright test
       - run: npm run smoke:qa
+      - name: Keep browser test evidence (screenshots, traces, error context)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            test-results/
+            test/qa/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
   deploy:
     needs: test

@@ -37,7 +37,26 @@ export function composeTransform(orientation, scale) {
 }
 
 /**
- * Saves (insert or replace) a project; the source blob goes to the `sources` store.
+ * Stores the source scan. Blobs are preferred (file-backed, no memory copy). WebKit refuses
+ * Blob values in IndexedDB in ephemeral sessions (Private Browsing, automated WebKit), so on
+ * failure the bytes are stored as an ArrayBuffer instead.
+ * @param {IDBDatabase} db
+ * @param {string} id
+ * @param {Blob} blob
+ */
+async function putSource(db, id, blob) {
+  try {
+    await tx(db, ['sources'], 'readwrite', (t) => { t.objectStore('sources').put({ id, blob }); });
+  } catch (e) {
+    console.warn(`Storing the scan as Blob failed (${e && e.name}: ${e && e.message}); storing bytes instead.`);
+    const bytes = await blob.arrayBuffer();
+    await tx(db, ['sources'], 'readwrite', (t) => { t.objectStore('sources').put({ id, bytes, type: blob.type }); });
+  }
+}
+
+/**
+ * Saves (insert or replace) a project; the source goes to the `sources` store first, so a
+ * project record never exists without its scan.
  * @param {IDBDatabase} db
  * @param {object} project
  */
@@ -45,11 +64,24 @@ export async function saveProject(db, project) {
   const { sourceFile, ...meta } = project;
   meta.updatedAt = new Date().toISOString();
   meta.sourceSize = sourceFile ? sourceFile.size : meta.sourceSize || 0;
-  await tx(db, ['projects', 'sources'], 'readwrite', (t) => {
-    t.objectStore('projects').put(meta);
-    if (sourceFile) t.objectStore('sources').put({ id: meta.id, blob: sourceFile });
-  });
+  if (sourceFile) await putSource(db, meta.id, sourceFile);
+  await tx(db, ['projects'], 'readwrite', (t) => { t.objectStore('projects').put(meta); });
   return meta;
+}
+
+/**
+ * Thumbnails are stored as plain bytes (they are small), which every IndexedDB accepts.
+ * @param {Blob} blob JPEG
+ * @returns {Promise<{bytes:ArrayBuffer, type:string}>}
+ */
+export async function thumbnailRecord(blob) {
+  return { bytes: await blob.arrayBuffer(), type: blob.type || 'image/jpeg' };
+}
+
+/** Thumbnail record (or a legacy Blob) → Blob for display. */
+export function thumbnailBlob(t) {
+  if (!t) return null;
+  return t instanceof Blob ? t : new Blob([t.bytes], { type: t.type });
 }
 
 /**
@@ -80,7 +112,7 @@ export async function getProject(db, id, opts = {}) {
   if (!p) return null;
   if (opts.withSource) {
     const src = await tx(db, ['sources'], 'readonly', (t) => req(t.objectStore('sources').get(id)));
-    p.sourceFile = src?.blob || null;
+    p.sourceFile = src?.blob || (src?.bytes ? new Blob([src.bytes], { type: src.type || '' }) : null);
   }
   return p;
 }
@@ -89,7 +121,7 @@ export async function getProject(db, id, opts = {}) {
 export async function listProjects(db) {
   const all = await tx(db, ['projects'], 'readonly', (t) => req(t.objectStore('projects').getAll()));
   return all
-    .map((p) => ({ ...p, storageBytes: (p.sourceSize || 0) + JSON.stringify(p.annotations || []).length + (p.thumbnail ? p.thumbnail.size || 0 : 0) }))
+    .map((p) => ({ ...p, storageBytes: (p.sourceSize || 0) + JSON.stringify(p.annotations || []).length + (p.thumbnail ? p.thumbnail.size ?? p.thumbnail.bytes.byteLength : 0) }))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 

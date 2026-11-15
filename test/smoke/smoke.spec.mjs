@@ -7,7 +7,10 @@ import { fileURLToPath } from 'node:url';
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/room.glb', import.meta.url));
 
-test.beforeEach(async ({ context }) => {
+test.beforeEach(async ({ context, page }) => {
+  // Diagnostics for CI (WebKit runs only there): browser console and page errors in the log.
+  page.on('console', (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
+  page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`));
   // Capture Web Share calls instead of opening the share sheet.
   await context.addInitScript(() => {
     navigator.canShare = () => true;
@@ -24,6 +27,8 @@ async function importRoom(page, name = 'Smoke room') {
   await page.getByRole('button', { name: 'OK' }).click();
   // first import asks for persistent storage; headless browsers deny it → one-time notice
   await page.getByRole('dialog', { name: 'Storage' }).getByRole('button', { name: 'OK' }).click({ timeout: 3000 }).catch(() => {});
+  const dialog = page.locator('.modal');
+  if (await dialog.count()) console.log(`[dialog after import] ${await dialog.first().innerText()}`);
   await expect(page.locator('#view-3d canvas')).toBeVisible();
   await page.waitForTimeout(800);
 }

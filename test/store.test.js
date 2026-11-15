@@ -40,3 +40,33 @@ test('reopen deep-equal', async () => {
   assert.deepEqual(got.transform, p.transform);
   assert.deepEqual(got.annotations, p.annotations);
 });
+
+test('falls back to bytes when Blobs cannot be stored (WebKit ephemeral sessions)', async () => {
+  const db = await openDb(new IDBFactory());
+  // simulate WebKit: the first Blob put throws DataError
+  const realTx = db.transaction.bind(db);
+  let failed = false;
+  db.transaction = (stores, mode) => {
+    const t = realTx(stores, mode);
+    const real = t.objectStore.bind(t);
+    t.objectStore = (name) => {
+      const os = real(name);
+      const put = os.put.bind(os);
+      os.put = (v) => {
+        if (v && v.blob instanceof Blob && !failed) { failed = true; throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataError'); }
+        return put(v);
+      };
+      return os;
+    };
+    return t;
+  };
+  const warn = console.warn;
+  console.warn = () => {};
+  try {
+    const p = sample();
+    await saveProject(db, p);
+    assert.ok(failed);
+    const got = await getProject(db, p.id, { withSource: true });
+    assert.deepEqual(new Uint8Array(await got.sourceFile.arrayBuffer()), new Uint8Array([1, 2, 3]));
+  } finally { console.warn = warn; }
+});
