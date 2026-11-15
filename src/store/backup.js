@@ -18,9 +18,12 @@ export function projectFromBackup(data, file, fileName, format) {
   p.createdAt = data.createdAt || p.createdAt;
   p.annotations = data.annotations;
   p.settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
-  p.calibration = data.calibration || null;
+  // The backup mesh already contains the calibration scale: keep it only as display metadata
+  // (`baked`) so it is never applied again (DEF-01).
+  const c = data.calibration;
+  p.calibration = c ? { factor: 1, refCm: c.refCm, baked: (c.factor || 1) * (c.baked || 1) } : null;
   p.orientation = identity();
-  p.scale = 1; // already baked into the mesh; calibration kept for display
+  p.scale = 1;
   p.transform = identity();
   return p;
 }

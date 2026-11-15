@@ -73,6 +73,25 @@ export function markupQuantities(m) {
 
 const LABEL = { demolition: 'Demolition (Abbruch)', new: 'New (Neubau)' };
 
+/**
+ * Scales all annotation coordinates about the origin (DEF-06): used when the calibration
+ * changes, because the mesh is scaled about the origin too. Scanned heights scale as well;
+ * user-entered real values (thickness, excavation level/depth) do not.
+ * @param {object[]} annotations
+ * @param {number} ratio new scale / old scale
+ * @returns {object[]} new array
+ */
+export function scaleAnnotations(annotations, ratio) {
+  if (ratio === 1) return annotations;
+  const sc = (v) => (Array.isArray(v) ? v.map((x) => x * ratio) : v);
+  return annotations.map((a) => {
+    const out = { ...a };
+    for (const k of ['a', 'b', 'seg', 'polygon', 'at']) if (out[k]) out[k] = sc(out[k]);
+    if (typeof out.height === 'number') out.height *= ratio;
+    return out;
+  });
+}
+
 /** German number format with decimal comma. */
 function de(v, digits) {
   return v === null || v === undefined ? '' : v.toFixed(digits).replace('.', ',');

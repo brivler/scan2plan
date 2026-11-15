@@ -5,6 +5,7 @@
  */
 import { UndoableState } from '../store/annotations.js';
 import { updateProject, composeTransform } from '../store/project.js';
+import { scaleAnnotations } from '../core/markup.js';
 
 export const AUTOSAVE_MS = 800;
 
@@ -65,6 +66,18 @@ export class Session extends EventTarget {
       annotations: s.annotations, orientation: s.orientation, calibration: s.calibration,
       scale: this.scale, transform: this.transform, settings: this.settings,
     });
+  }
+
+  /**
+   * Sets the calibration (null = reset) in one undo step and moves the annotations with the
+   * rescaled mesh (DEF-06). A restored backup's `baked` factor is kept.
+   * @param {{factor:number, refCm:number}|null} cal
+   */
+  setCalibration(cal) {
+    const baked = this.edit.state.calibration?.baked;
+    const next = cal ? { ...cal, ...(baked ? { baked } : {}) } : baked ? { factor: 1, refCm: this.edit.state.calibration.refCm, baked } : null;
+    const ratio = (next ? next.factor : 1) / this.scale;
+    this.edit.apply((d) => { d.calibration = next; d.annotations = scaleAnnotations(d.annotations, ratio); });
   }
 
   /** Next free section label A…Z or null if all 26 are used (REQ-026). */

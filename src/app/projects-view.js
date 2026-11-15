@@ -13,6 +13,7 @@ import { exportGlb, backupExtras } from '../export/glb.js';
 import { deliverFile } from '../export/share.js';
 import { asciiSafe } from '../export/filename.js';
 import { calibrationText } from '../core/measure.js';
+import { exportTexture } from './images.js';
 
 const PERSIST_KEY = 's2p-persist-result';
 const WARNED_KEY = 's2p-persist-warned';
@@ -47,10 +48,14 @@ export function createProjectsView(app, root) {
     });
   }
 
+  let thumbUrls = [];
   async function render() {
     const projects = await listProjects(app.db);
+    for (const u of thumbUrls) URL.revokeObjectURL(u); // DEF-13
+    thumbUrls = [];
+    const thumbUrl = (blob) => { const u = URL.createObjectURL(blob); thumbUrls.push(u); return u; };
     const items = projects.map((p) => {
-      const thumb = p.thumbnail ? el('img', { src: URL.createObjectURL(p.thumbnail), alt: '' }) : el('div', { class: 'thumb' });
+      const thumb = p.thumbnail ? el('img', { src: thumbUrl(p.thumbnail), alt: '' }) : el('div', { class: 'thumb' });
       return el('div', { class: 'card project' }, [
         thumb,
         el('div', {}, [
@@ -80,12 +85,43 @@ export function createProjectsView(app, root) {
   newBtn.innerHTML = `${icon('plus')}<span>New project / import scan</span>`;
   scroll.append(...intro, newBtn, el('p', { class: 'muted' }, 'Also restores backups (.s2p.glb).'), list);
 
+  /**
+   * The worker holds one scan. When an import/open does not end in a new session (cancel,
+   * error, dialog dismissed), reload the still-open project into the worker (DEF-02).
+   * @param {Session|null} prev session that was open before
+   */
+  async function restoreOpenSession(prev) {
+    if (!prev || app.session !== prev) return;
+    try {
+      await withBusy('Restoring open project', async () => {
+        const p = await getProject(app.db, prev.project.id, { withSource: true });
+        if (!p || !p.sourceFile) throw new Error('The scan file of the open project is missing.');
+        const buffer = await p.sourceFile.arrayBuffer();
+        await app.client.call('load', { buffer, transform: prev.transform }, { transfer: [buffer] });
+      });
+    } catch (e) {
+      app.setSession(null);
+      await showError(e, 'The open project was closed');
+    }
+  }
+
   async function createProject() {
     const file = await pickFile();
     if (!file) return;
     try {
       if (checkFileSize(file.size) && !(await confirmDialog('Large file', MESSAGES['W-IMP-01'], 'Continue'))) return;
     } catch (e) { await showError(e, 'Cannot open file'); return; }
+    const prev = app.session;
+    let started = false;
+    try {
+      started = await importFile(file);
+    } finally {
+      if (!started) await restoreOpenSession(prev);
+    }
+  }
+
+  /** @returns {Promise<boolean>} true if a new session was started */
+  async function importFile(file) {
     let cancelled = false;
     const ov = progressOverlay('Importing scan', () => { cancelled = true; app.client.cancel(); });
     let load;
@@ -95,7 +131,7 @@ export function createProjectsView(app, root) {
     } catch (e) {
       ov.close();
       if (!cancelled) await showError(e, 'Import failed');
-      return;
+      return false;
     }
     ov.close();
     try {
@@ -105,7 +141,7 @@ export function createProjectsView(app, root) {
         toast('Backup restored');
       } else {
         const name = await promptDialog({ title: 'New project', label: 'Project name', value: file.name.replace(/\.[^.]+$/, '').slice(0, 80), maxLength: 80, validate: (v) => (v.trim() ? null : 'Please enter a project name.') });
-        if (name === null) return;
+        if (name === null) return false;
         let unitScale = 1;
         if (load.unit.scale && (await confirmDialog('Units', load.unit.message, `Scale ×${load.unit.scale}`))) unitScale = load.unit.scale;
         else if (load.unit.warning) await alertDialog('Units', load.unit.message);
@@ -113,13 +149,23 @@ export function createProjectsView(app, root) {
         project = newProject({ name, sourceFile: file, sourceName: file.name, sourceFormat: load.format, kind: load.kind });
         project.orientation = orient.matrix;
         project.transform = orient.matrix;
+        if (load.format === 'obj' || load.format === 'ply') {
+          const up = orient.up.findIndex((v) => v !== 0);
+          if (up !== 1 || orient.up[1] < 0) toast(`Up axis detected as ${orient.up[up] > 0 ? '+' : '−'}${'XYZ'[up]}. If the model looks sideways, use 3D → Orient → Up = …`, 6000);
+        }
       }
+      project.origin = load.origin;
+      if (load.origin.some((v) => v !== 0)) toast(`Georeferenced scan: coordinates shifted by ${load.origin.map((v) => v.toFixed(0)).join(' / ')} m for precision.`, 6000);
       await app.client.call('setTransform', { matrix: project.transform });
       await saveProject(app.db, project);
       await requestPersistence();
       startSession(project, load);
       await render();
-    } catch (e) { await showError(e, 'Import failed'); }
+      return true;
+    } catch (e) {
+      await showError(e, 'Import failed');
+      return false;
+    }
   }
 
   /** navigator.storage.persist() only after a user-initiated import (REQ-011). */
@@ -144,6 +190,17 @@ export function createProjectsView(app, root) {
   }
 
   async function open(id) {
+    const prev = app.session;
+    let started = false;
+    try {
+      started = await openProject(id);
+    } finally {
+      if (!started) await restoreOpenSession(prev);
+    }
+  }
+
+  /** @returns {Promise<boolean>} true if the project session was started */
+  async function openProject(id) {
     let cancelled = false;
     const ov = progressOverlay('Opening project', () => { cancelled = true; app.client.cancel(); });
     try {
@@ -153,9 +210,11 @@ export function createProjectsView(app, root) {
       const load = await app.client.call('load', { buffer, transform: p.transform }, { transfer: [buffer], onProgress: (v, l) => ov.update(v, l) });
       ov.close();
       startSession(p, load);
+      return true;
     } catch (e) {
       ov.close();
       if (!cancelled) await showError(e, 'Cannot open project');
+      return false;
     }
   }
 
@@ -189,7 +248,8 @@ export function createProjectsView(app, root) {
       const file = await withBusy('Preparing backup', async () => {
         const mesh = await app.client.call('worldMesh');
         const p = { ...s.project, annotations: s.annotations, settings: s.settings, calibration: s.edit.state.calibration, scale: s.scale };
-        const buf = await exportGlb(mesh, { extras: backupExtras(p) });
+        const texture = mesh.uvs ? await exportTexture(s.load.texture).catch(() => null) : null;
+        const buf = await exportGlb(mesh, { extras: backupExtras(p), texture });
         return new File([buf], `${asciiSafe(s.project.name)}.s2p.glb`, { type: 'model/gltf-binary' });
       });
       await readyToShare(file);

@@ -112,10 +112,12 @@ export function applyScale(transform, factor) {
 }
 
 /**
- * Calibration status text for project info and title blocks.
- * @param {{factor:number, refCm:number}|null} cal
+ * Calibration status text for project info and title blocks. `factor` is the scale applied by
+ * this project's transform; `baked` (restored backups) was already applied to the mesh.
+ * @param {{factor:number, refCm:number, baked?:number}|null} cal
  */
 export function calibrationText(cal) {
-  if (!cal || cal.factor === 1) return 'Scale: as scanned (not calibrated)';
-  return `Scale calibrated ×${cal.factor.toFixed(4)} on ${cal.refCm.toFixed(1)} cm reference`;
+  const total = cal ? cal.factor * (cal.baked || 1) : 1;
+  if (!cal || total === 1) return 'Scale: as scanned (not calibrated)';
+  return `Scale calibrated ×${total.toFixed(4)} on ${cal.refCm.toFixed(1)} cm reference`;
 }

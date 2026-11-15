@@ -95,9 +95,14 @@ function levelItems(bb) {
   return items;
 }
 
-/** Level markers placed by the user (REQ-027). */
-function levelMarkers(annotations, viewId) {
+/** Level markers (REQ-027) and saved measurements (REQ-030) of one view. */
+function viewMarkers(annotations, viewId) {
   const items = [];
+  for (const a of annotations) {
+    if (a.type !== 'measure' || a.view !== viewId) continue;
+    items.push({ k: 'line', pts: [...a.a, ...a.b], closed: false, style: 'measure', ref: a.id });
+    items.push({ k: 'text', at: [(a.a[0] + a.b[0]) / 2, (a.a[1] + a.b[1]) / 2], text: cm1(Math.hypot(a.b[0] - a.a[0], a.b[1] - a.a[1])), sizeMm: 2, anchor: 'middle', style: 'text', dy: -2 });
+  }
   for (const a of annotations) {
     if (a.type !== 'level' || a.view !== viewId) continue;
     const [x, y] = a.at;
@@ -120,7 +125,7 @@ export function buildElevationDrawing(v, annotations, viewId) {
   for (const p of v.outline) items.push({ k: 'line', pts: p.pts, closed: p.closed, style: 'edge' });
   const bb = polylinesBBox(v.outline);
   if (bb) items.push(...levelItems(bb));
-  items.push(...levelMarkers(annotations, viewId));
+  items.push(...viewMarkers(annotations, viewId));
   return { title: v.title, kind: 'elevation', items, images: {}, legend: false };
 }
 
@@ -141,7 +146,7 @@ export function buildSectionDrawing(s, cut, annotations, hm = null) {
   const bb = polylinesBBox(s.cut.length ? s.cut : s.beyond.outline);
   if (bb) items.push(...levelItems(bb));
   if (hm) for (const ex of annotations.filter((a) => a.type === 'excavation')) items.push(...excavationProfile(s.frame, cut, ex, hm));
-  items.push(...levelMarkers(annotations, `section-${cut.label}`));
+  items.push(...viewMarkers(annotations, `section-${cut.label}`));
   return { title: `Section ${cut.label}–${cut.label}`, kind: 'section', items, images: {}, legend: false };
 }
 

@@ -76,7 +76,7 @@ async function boot() {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   const banner = document.getElementById('update-banner');
-  navigator.serviceWorker.register('./sw.js', { scope: './' }).then((reg) => {
+  navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).then((reg) => {
     reg.update().catch(() => {});
     const offer = (worker) => {
       banner.hidden = false;

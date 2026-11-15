@@ -68,7 +68,7 @@ test('QA worker: excavation without terrain gives a user-facing error; unknown o
   assert.throws(() => call('nope'), /Unknown operation/);
 });
 
-test('QA REQ-012/031: a restored calibrated backup keeps its size after save + reopen', { todo: 'DEF-01: Session re-applies calibration.factor on top of the baked mesh' }, async () => {
+test('QA REQ-012/031: a restored calibrated backup keeps its size after save + reopen', async () => {
   // 1) a calibrated project (factor 1.02) is backed up: the GLB contains the scaled mesh
   const raw = box(4, 3, 2.5);
   const scaled = { ...raw, positions: raw.positions.map((v) => v * 1.02) };
@@ -108,7 +108,7 @@ test('QA REQ-031: calibrating twice multiplies; Reset scale restores ×1 through
   near(assert, (await getProject(db, p.id)).transform[0], 1, 1e-12, 'saved');
 });
 
-test('QA REQ-012/055: vertex colours survive a GLB export → import round trip', { todo: 'DEF-12: sRGB bytes are written as linear COLOR_0 and brightened on re-import' }, async () => {
+test('QA REQ-012/055: vertex colours survive a GLB export → import round trip', async () => {
   const m = box(1, 1, 1);
   const colors = new Uint8Array((m.positions.length / 3) * 3).fill(128);
   const glb = await exportGlb({ ...m, colors });

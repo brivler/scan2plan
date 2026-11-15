@@ -44,7 +44,7 @@ const ops = {
     const transfer = [display.positions.buffer, display.indices?.buffer, display.colors?.buffer, display.uvs?.buffer].filter(Boolean);
     return {
       result: {
-        kind: S.kind, format: S.format, extras: r.extras, bbox, display, decimated: dec.cellSize !== null,
+        kind: S.kind, format: S.format, extras: r.extras, origin: r.origin, bbox, display, decimated: dec.cellSize !== null,
         texture: S.raw.texture ? { bytes: S.raw.texture.bytes.slice(), mimeType: S.raw.texture.mimeType } : null,
         triangles: S.raw.indices ? S.raw.indices.length / 3 : 0, vertices: S.raw.positions.length / 3,
         unit: suggestUnitScale(bbox, S.format),

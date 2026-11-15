@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { markupQuantities, markupPolygon, markupCsv, validateMarkup } from '../src/core/markup.js';
+import { markupQuantities, markupPolygon, markupCsv, validateMarkup, scaleAnnotations } from '../src/core/markup.js';
 import { UndoableState } from '../src/store/annotations.js';
 import { sheetToSvg } from '../src/export/svg.js';
 import { boxSheet } from './helpers/pipeline.js';
@@ -66,4 +66,14 @@ test('csv', () => {
   assert.equal(rows[1], 'Demolition (Abbruch);3,00;2,50;7,50;0,240;1,800;Wand Küche');
   assert.ok(rows.some((r) => r.startsWith('Total Demolition (Abbruch);6,00;;15,00;;3,600')));
   assert.ok(rows.some((r) => r.endsWith('"a;b"')));
+});
+
+test('calibration moves annotations with the mesh', () => {
+  const ex = { id: 'e', type: 'excavation', polygon: [0, 0, 2, 0, 2, -2], mode: 'level', level: -0.5 };
+  const [d, e] = scaleAnnotations([{ ...DEMO, a: [6, 0], b: [6, -3] }, ex], 1.05);
+  assert.deepEqual(d.a, [6 * 1.05, 0]);
+  assert.ok(Math.abs(d.height - 2.5 * 1.05) < 1e-12);
+  assert.equal(d.thickness, 0.24, 'real thickness unchanged');
+  assert.deepEqual(e.polygon, [0, 0, 2.1, 0, 2.1, -2.1]);
+  assert.equal(e.level, -0.5, 'user target level unchanged');
 });

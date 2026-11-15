@@ -108,12 +108,15 @@ export function create3DView(app, root) {
   }
 
   new ResizeObserver(requestRender).observe(wrap);
+  // iOS may drop the WebGL context in the background; redraw once it is restored (DEF-14)
+  renderer.domElement.addEventListener('webglcontextlost', (e) => e.preventDefault());
+  renderer.domElement.addEventListener('webglcontextrestored', () => requestRender());
 
   function buildModel(session) {
     if (model) { scene.remove(model); model.geometry.dispose(); model.material.dispose(); model = null; }
-    if (wire) { scene.remove(wire); wire = null; }
+    removeWire();
     if (texture) { texture.dispose(); texture = null; }
-    overlay.clear();
+    disposeChildren(overlay);
     if (!session) return;
     const d = session.load.display;
     const geo = new THREE.BufferGeometry();
@@ -144,6 +147,19 @@ export function create3DView(app, root) {
     needsFraming = true; // frame once the canvas has its real size (tab may be hidden now)
   }
 
+  /** Removes children and frees their GPU geometry/materials (DEF-13). */
+  function disposeChildren(group) {
+    for (const c of [...group.children]) { c.geometry?.dispose(); c.material?.dispose(); }
+    group.clear();
+  }
+
+  function removeWire() {
+    if (!wire) return;
+    scene.remove(wire);
+    wire.material.dispose(); // geometry is shared with the model
+    wire = null;
+  }
+
   function applyTransform(session) {
     if (!model) return;
     model.matrix.fromArray(session.transform);
@@ -164,7 +180,7 @@ export function create3DView(app, root) {
     m.opacity = mode === 'xray' ? 0.5 : 1;
     m.depthWrite = mode !== 'xray';
     m.needsUpdate = true;
-    if (wire) { scene.remove(wire); wire = null; }
+    removeWire();
     if (mode === 'wire' && !isPoints) {
       wire = new THREE.Mesh(model.geometry, new THREE.MeshBasicMaterial({ color: 0x1f2a36, wireframe: true, transparent: true, opacity: 0.35, clippingPlanes: m.clippingPlanes }));
       wire.matrixAutoUpdate = false;
@@ -273,7 +289,7 @@ export function create3DView(app, root) {
   }
 
   function drawPicks() {
-    overlay.clear();
+    disposeChildren(overlay);
     for (const l of wrap.querySelectorAll('.measure-label')) l.remove();
     const pts = picks.length ? picks : [];
     const r = Math.max(0.01, modelBox().getSize(new THREE.Vector3()).length() / 300);
@@ -324,7 +340,7 @@ export function create3DView(app, root) {
     if (unusual && !(await confirmDialog('Calibrate scale', `Scale change of ${percent.toFixed(1)} % is unusual. Apply anyway?`, 'Apply'))) return;
     const s = app.session;
     const prev = s.edit.state.calibration ? s.edit.state.calibration.factor : 1;
-    s.edit.apply((d) => { d.calibration = { factor: prev * factor, refCm: real }; });
+    s.setCalibration({ factor: prev * factor, refCm: real });
     toast(calibrationText(s.edit.state.calibration));
   }
 
@@ -366,7 +382,7 @@ export function create3DView(app, root) {
         act('Set ±0.00 here', () => setTool('zero', 'Tap the reference height (e.g. finished floor)')),
         act('Rotate 90°', () => applyOrientation('rot90').catch(showError)),
         act('Align to tapped wall', () => setTool('alignWall', 'Tap a wall')),
-        act('Reset scale', () => { app.session.edit.apply((d) => { d.calibration = null; }); toast('Scale reset to ×1.0000'); }),
+        act('Reset scale', () => { app.session.setCalibration(null); toast('Scale reset to ×1.0000'); }),
         act('Reset orientation', () => app.session.edit.apply((d) => { d.orientation = identity(); })),
       ]),
       el('p', { class: 'muted' }, calibrationText(app.session.edit.state.calibration)),
@@ -396,7 +412,7 @@ export function create3DView(app, root) {
 
   /** Red section line at the plan height (REQ-017), from the last plan computed. */
   function updateSectionLine() {
-    sectionLine.clear();
+    disposeChildren(sectionLine);
     const plan = app.session?.lastPlan;
     if (!plan) return;
     for (const p of plan.outline) {

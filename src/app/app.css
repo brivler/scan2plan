@@ -149,7 +149,7 @@ input[type="range"] { width: 100%; min-height: 44px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.45); display: flex; align-items: flex-end; justify-content: center; }
 .modal {
-  background: var(--surface); color: var(--text); width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto;
+  background: var(--surface); color: var(--text); width: 100%; max-width: 560px; max-height: 88vh; max-height: 88dvh; overflow-y: auto; /* dvh: Safari's visible viewport (DEF-14) */
   border-radius: 16px 16px 0 0; padding: 16px calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
 }
 @media (min-width: 600px) { .modal-backdrop { align-items: center; } .modal { border-radius: 16px; } }

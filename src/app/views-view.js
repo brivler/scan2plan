@@ -10,6 +10,8 @@ import { snap2D, SNAP_2D_PX, cm1, formatLevel } from '../core/measure.js';
 import { rgbaToHref } from './images.js';
 import { openExport } from './export-dialog.js';
 
+const VIEW_CACHE_MAX = 3;
+
 /**
  * @param {object} app
  * @param {HTMLElement} root
@@ -52,7 +54,10 @@ export function createViewsView(app, root) {
         }
         entry.href = entry.raster ? rgbaToHref(entry.raster.rgba, entry.raster.width, entry.raster.height) : null;
         cache.set(id, entry);
+        // keep at most a few rendered views (RGBA + PNG each): least recently used go (DEF-13)
+        while (cache.size > VIEW_CACHE_MAX) cache.delete(cache.keys().next().value);
       }
+      cache.delete(id); cache.set(id, entry); // mark as most recently used
       current = entry;
       draw(false);
     } catch (e) { showError(e); }
@@ -107,7 +112,8 @@ export function createViewsView(app, root) {
     if (picks.length === 2) {
       const [a, b] = picks;
       picks = [];
-      hud.replaceChildren(el('div', { class: 'pill', role: 'status' }, `${cm1(Math.hypot(b[0] - a[0], b[1] - a[1]))} · Δh ${cm1(Math.abs(b[0] - a[0]))} · Δv ${cm1(Math.abs(b[1] - a[1]))}`));
+      const save = el('button', { type: 'button', class: 'btn', onclick: () => { s().edit.add({ type: 'measure', view: current.id, a, b }); setTool('measure', 'Saved — tap point A'); } }, 'Save');
+      hud.replaceChildren(el('div', { class: 'pill', role: 'status' }, [`${cm1(Math.hypot(b[0] - a[0], b[1] - a[1]))} · Δh ${cm1(Math.abs(b[0] - a[0]))} · Δv ${cm1(Math.abs(b[1] - a[1]))} `, save]));
     }
     drawOverlay();
   }
@@ -127,6 +133,7 @@ export function createViewsView(app, root) {
     toolBtn('ruler', 'Measure', 'measure', 'Tap point A, then point B'),
     toolBtn('marker', 'Level', 'level', 'Tap a point to place a level marker'),
     toolButton('undo', 'Undo', () => s()?.edit.undo()),
+    toolButton('redo', 'Redo', () => s()?.edit.redo()),
     toolButton('section', 'Depth', depthSetting),
     toolButton('share', 'Export', () => current && openExport(app, { view: current.id, drawing: () => current.drawing, raster: current.raster })),
   );

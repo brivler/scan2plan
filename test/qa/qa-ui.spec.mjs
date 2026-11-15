@@ -121,7 +121,6 @@ test('REQ-013/050: every export format and Backup work offline through the share
 });
 
 test('DEF-02: cancelling a second import keeps the open project\'s geometry', async ({ page }) => {
-  test.fail(!process.env.QA_SHOW, 'DEF-02 open: worker already holds the new scan while the old session stays open');
   await importFile(page, ROOM, 'Room A');
   await page.locator('.tab[data-tab="plan"]').click();
   await expect(page.locator('#view-plan svg text', { hasText: /^400$/ }).first()).toBeVisible();

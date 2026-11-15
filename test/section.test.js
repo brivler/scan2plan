@@ -38,3 +38,12 @@ test('excavation hatch', () => {
   const svg = sheetToSvg(layoutSheet(d, { paper: 'A4', orientation: 'landscape', scale: 100, project: 'T', date: '2026-11-15' }));
   assert.ok(svg.includes('#8B5A2B'));
 });
+
+test('saved view measurements appear in the drawing', () => {
+  const s = section(box(4, 3, 2.5), [2, -1], [2, 4], 1);
+  const cut = { type: 'section', label: 'A', a: [2, -1], b: [2, 4], side: 1 };
+  const m = { id: 'm1', type: 'measure', view: 'section-A', a: [0, 0], b: [0, 2.5] };
+  const d = buildSectionDrawing(s, cut, [m, { ...m, id: 'm2', view: 'elev-front' }], null);
+  assert.equal(d.items.filter((i) => i.k === 'line' && i.style === 'measure').length, 1);
+  assert.ok(d.items.some((i) => i.k === 'text' && i.text === '250.0 cm'));
+});

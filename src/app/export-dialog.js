@@ -10,7 +10,7 @@ import { drawingToDxf } from '../export/dxf.js';
 import { exportGlb } from '../export/glb.js';
 import { exportFileName, isoDate } from '../export/filename.js';
 import { markupCsv } from '../core/markup.js';
-import { rgbaToJpeg } from './images.js';
+import { rgbaToJpeg, exportTexture } from './images.js';
 import { transformPositions } from '../core/mesh.js';
 import { readyToShare } from './projects-view.js';
 
@@ -66,9 +66,10 @@ async function build(app, o, opts) {
     if (s.load.triangles > GLB_FULL_LIMIT) {
       const d = s.load.display;
       await alertDialog('Large model', 'The scan has more than 2 million triangles; the simplified display model is exported instead.');
-      mesh = { positions: transformPositions(d.positions, s.transform), indices: d.indices, colors: d.colors };
+      mesh = { positions: transformPositions(d.positions, s.transform), indices: d.indices, colors: d.colors, uvs: d.uvs };
     } else mesh = await app.client.call('worldMesh');
-    const buf = await exportGlb(mesh);
+    const texture = mesh.uvs ? await exportTexture(s.load.texture).catch(() => null) : null;
+    const buf = await exportGlb(mesh, { texture });
     return new File([buf], exportFileName({ project, view: 'model', date, ext: 'glb' }), { type: 'model/gltf-binary' });
   }
   if (opts.format === 'csv') {

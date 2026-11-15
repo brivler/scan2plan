@@ -1,6 +1,8 @@
 /**
- * RGBA raster → canvas / data URL / JPEG bytes (elevations, sections, terrain). Browser-only.
+ * RGBA raster → canvas / data URL / JPEG bytes (elevations, sections, terrain) and the scan
+ * texture for GLB export. Browser-only.
  */
+import * as THREE from 'three';
 
 /**
  * @param {Uint8ClampedArray} rgba
@@ -31,4 +33,20 @@ export async function rgbaToJpeg(rgba, w, h) {
   const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
   if (!blob) throw new Error('Could not encode the image.');
   return new Uint8Array(await blob.arrayBuffer());
+}
+
+/**
+ * Decodes the scan's original base-colour texture for GLB export / backup (DEF-18).
+ * glTF images are not flipped (UV origin top-left), so flipY stays false.
+ * @param {{bytes:Uint8Array, mimeType:string}|null} tex
+ * @returns {Promise<THREE.Texture|null>}
+ */
+export async function exportTexture(tex) {
+  if (!tex) return null;
+  const bmp = await createImageBitmap(new Blob([tex.bytes], { type: tex.mimeType }), { imageOrientation: 'none' });
+  const t = new THREE.Texture(bmp);
+  t.flipY = false;
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.userData.mimeType = tex.mimeType === 'image/png' ? 'image/png' : 'image/jpeg';
+  return t;
 }
