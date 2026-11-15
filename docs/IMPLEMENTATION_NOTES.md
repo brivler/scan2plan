@@ -11,13 +11,12 @@ the REQ id. Requirements not listed here are implemented as written. Test names 
   (`Cannot find module …/test`), so `npm test` runs `node --test test/*.test.js`. All test names
   from §7 exist with exactly those names. A few extra tests were added, such as
   `parsers agree with three.js loaders`, `file size limit` and `no remote URLs`.
-- **REQ-090 (DEF-10, deferred in this environment).** Playwright **WebKit could not be
-  downloaded here**: the proxy returns 403 for all Playwright browser hosts.
-  `.github/workflows/test-and-deploy.yml` runs `npm test`, `npm run test:qa` and both Playwright suites
-  **in WebKit** on GitHub Actions. The smoke test is now split into the §7 names `offline`,
-  `orbit` and `layout 390`; `layout 390` checks every tab after an import. The smoke test `test/smoke/smoke.spec.mjs` defaults to WebKit at 390×844.
-  It was run and passes with the installed Google Chrome: `S2P_BROWSER=chrome npx playwright test`.
-  QA should run it with WebKit where it can be installed.
+- **REQ-090 (DEF-10).** Both Playwright suites now **run and pass in WebKit on GitHub Actions**
+  (`.github/workflows/test-and-deploy.yml`; see "WebKit / Safari fixes" below). WebKit cannot be
+  downloaded in the dev sandbox (the proxy returns 403 for all Playwright browser hosts), so
+  local runs use Chrome: `S2P_BROWSER=chrome npx playwright test`. The smoke test is split into
+  the §7 names `offline`, `orbit` and `layout 390`; `layout 390` checks every tab after an import.
+  It defaults to WebKit at 390×844.
   - Locally: `S2P_BROWSER=chrome npx playwright test` and `npm run smoke:qa`.
   - "Camera position changed" is checked by comparing canvas screenshots before and after the
     drag, which needs no test hook in the app.
@@ -316,6 +315,34 @@ the REQ id. Requirements not listed here are implemented as written. Test names 
   slice of 1 M triangles < 1.5 s, elevation of 1 M triangles < 3 s, terrain volume over
   100 m² < 1 s, PDF+SVG+DXF < 2 s, and orientation of 1 M triangles < 5 s. The device rows
   (cold start, import times, fps, memory) are on the owner checklist (§9) and were not measured.
+
+## WebKit / Safari fixes (first CI run in WebKit)
+
+The first GitHub Actions run, the first ever in WebKit, failed all smoke tests: the import
+never reached the 3D view. CI logs showed two causes, plus two smaller WebKit differences:
+
+- **IndexedDB refuses Blob/File values in ephemeral WebKit sessions** (automated WebKit and
+  Safari Private Browsing). `saveProject` threw after the name prompt, so the import ended in an
+  error. The scan is now stored as a Blob when possible and as an ArrayBuffer otherwise
+  (`store/project.js › putSource`; logs a console warning). The source is written before the
+  project record. Thumbnails are always stored as bytes.
+  - Normal (non-private) Safari keeps Blobs.
+  - In Private Browsing, storing the bytes needs a transient copy of the file in memory.
+  - Store test: `falls back to bytes when Blobs cannot be stored`.
+- **Spurious reload on the first visit.** WebKit can report the first service worker's
+  `installed` state after `clients.claim()` has already set a controller. The app then offered
+  an "update", and the next `controllerchange` reloaded the page mid-import. Playwright logged
+  `navigated to …` during the stalled imports.
+  - Updates are now offered only when the page started with a controller.
+  - The launch update check is skipped on a first install.
+  - The page reloads only after the user taps *Reload* (REQ-064).
+- The worker's error code is read duck-typed (`err.code` matching `E-IMP-xx`), not via
+  `instanceof ImportError`, which failed in WebKit.
+- `registration.update()` is skipped while `navigator.onLine` is false, so the offline smoke test
+  has no failed request (REQ-013).
+- The smoke tests print browser console messages, page errors and main-frame navigations to the
+  CI log. CI uploads Playwright results on failure, but the dev sandbox cannot download artifacts
+  (the blob host is blocked), so the log is the evidence channel.
 
 ## Memory and iOS details (DEF-13, DEF-14)
 

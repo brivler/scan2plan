@@ -8,17 +8,14 @@ import { fileURLToPath } from 'node:url';
 const FIXTURE = fileURLToPath(new URL('../fixtures/room.glb', import.meta.url));
 
 test.beforeEach(async ({ context, page }) => {
-  // Diagnostics for CI (WebKit runs only there): browser console and page errors in the log.
+  // Diagnostics for CI (WebKit runs only there): browser console, page errors and navigations in the log.
   page.on('console', (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
   page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`));
   page.on('framenavigated', (f) => { if (f === page.mainFrame()) console.log(`[nav] ${f.url()}`); });
-  page.on('worker', (w) => { console.log(`[worker created] ${w.url()}`); w.on('close', () => console.log('[worker closed]')); });
   // Capture Web Share calls instead of opening the share sheet.
   await context.addInitScript(() => {
     navigator.canShare = () => true;
     navigator.share = async ({ files }) => { window.__shared = files.map((f) => f.name); };
-    const t0 = performance.now();
-    navigator.serviceWorker?.addEventListener('controllerchange', () => console.log(`[sw] controllerchange at ${(performance.now() - t0).toFixed(0)} ms`));
   });
 });
 
