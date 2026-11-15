@@ -53,7 +53,8 @@ You need Node.js 22 or newer.
 
 ```bash
 npm install                 # dev tools only: three (for tests), fake-indexeddb, xmldom, playwright
-npm test                    # node --test test/*.test.js (unit + acceptance tests, about 20 s)
+npm test                    # node --test test/*.test.js (unit + acceptance tests, about 10 s)
+npm run test:qa             # QA's adversarial suite (test/qa/)
 npm run coverage            # same, with line coverage
 ```
 
@@ -63,13 +64,17 @@ Headless smoke test (offline reload, import, orbit, plan, export):
 npx playwright install webkit      # once
 npx playwright test                # WebKit at iPhone 14 size (390×844)
 S2P_BROWSER=chrome npx playwright test   # alternative: use an installed Google Chrome
+npm run smoke:qa                   # QA browser tests (same S2P_BROWSER switch)
 ```
+
+On GitHub, the *Tests* workflow (`.github/workflows/ci.yml`) runs all suites on every push,
+including the browser tests in WebKit.
 
 Helper scripts:
 
 | Command | What it does |
 |---|---|
-| `npm run precache` | Rebuilds `src/precache-list.js` (the offline file list). **Run it after you add or remove files.** |
+| `npm run precache` | Rebuilds `src/precache-list.js` (offline file list + content hash). The deploy workflow runs it automatically; locally, `npm test` fails until you run it after changing app files. |
 | `npm run icons` | Regenerates the PNG app icons in `icons/` |
 | `npm run fixtures` | Regenerates `test/fixtures/room.glb` for the smoke test |
 
@@ -86,20 +91,25 @@ You need a free GitHub account. You do not need to install anything if you use t
 2. Upload the files:
    - **In the browser:** on the new repository page click **uploading an existing file**.
      Drag in everything in this folder **except** `node_modules`, `test-results` and
-     `playwright-report`. Click **Commit changes**.
+     `playwright-report`. Make sure the hidden folder **`.github`** is included: it holds the
+     deploy workflow. On a Mac, press Cmd+Shift+. in Finder to show hidden folders. Click
+     **Commit changes**.
    - **Or with git:**
      ```bash
      git remote add origin https://github.com/<your-user>/scan2plan.git
      git push -u origin main
      ```
 3. In the repository, open **Settings** → **Pages**. Under *Build and deployment*, set
-   *Source* to **Deploy from a branch**, *Branch* to **main** and the folder to **/ (root)**.
-   Click **Save**.
-4. Wait one or two minutes and reload the Pages settings. It shows the address,
-   `https://<your-user>.github.io/scan2plan/`.
-5. **Publishing an update:** change the `version` in `package.json` (for example `1.0.1`), run
-   `npm run precache` and upload the changed files again. On the phone, the app shows
-   "Update available — Reload".
+   *Source* to **GitHub Actions**. Nothing else is needed: the workflow
+   `.github/workflows/pages.yml` publishes the app.
+4. Open the **Actions** tab. The *Deploy to GitHub Pages* run takes about a minute; when it
+   shows a green tick, the app is live at `https://<your-user>.github.io/scan2plan/`. If the
+   first run happened before step 3, click it and choose **Re-run all jobs**.
+5. **Publishing an update:** upload or commit the changed files, in the browser or with git.
+   Nothing needs to be bumped by hand. Every deploy regenerates the offline file list and its
+   content hash (`node tools/gen-precache.mjs`), so installed apps detect the new version and
+   show "Update available — Reload". Bump `version` in `package.json` only when you want a new
+   visible version number.
 
 All paths in the app are relative, so it works under the `/scan2plan/` sub-path.
 

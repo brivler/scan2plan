@@ -2,7 +2,7 @@
    deletes old caches on activate, waits for the user before activating an update (REQ-064). */
 importScripts('./src/precache-list.js');
 
-const CACHE = `scan2plan-v${self.S2P_APP_VERSION}`;
+const CACHE = `scan2plan-v${self.S2P_APP_VERSION}-${self.S2P_BUILD}`;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(self.S2P_PRECACHE.map((p) => new Request(p, { cache: 'reload' })))));

@@ -1,0 +1,20 @@
+# Unit, QA and browser smoke tests, including WebKit (not installable in the dev sandbox, DEF-10).
+name: Tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: sudo apt-get install -y qpdf
+      - run: npm test
+      - run: npm run test:qa
+      - run: npx playwright install --with-deps webkit
+      - run: npx playwright test
+      - run: npm run smoke:qa

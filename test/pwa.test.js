@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
-import { appFiles } from '../tools/gen-precache.mjs';
+import { appFiles, buildHash } from '../tools/gen-precache.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const manifest = JSON.parse(read('manifest.webmanifest'));
@@ -61,7 +61,10 @@ test('precache complete', () => {
   for (const e of entries) if (e !== './') assert.ok(existsSync(new URL(`../${e.slice(2)}`, import.meta.url)), `stale entry ${e}`);
   const version = JSON.parse(read('package.json')).version;
   assert.ok(list.includes(`self.S2P_APP_VERSION = "${version}"`));
-  assert.ok(read('sw.js').includes('scan2plan-v${self.S2P_APP_VERSION}'));
+  assert.ok(read('sw.js').includes('scan2plan-v${self.S2P_APP_VERSION}-${self.S2P_BUILD}'));
+  // content hash must match the files, otherwise installed apps would never see the update (DEF-08)
+  assert.ok(list.includes(`self.S2P_BUILD = "${buildHash()}"`), 'src/precache-list.js is stale: run npm run precache');
+  assert.ok(read('src/app/main.js').includes("updateViaCache: 'none'"));
 });
 
 test('vendor version', () => {
