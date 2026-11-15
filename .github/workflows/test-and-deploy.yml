@@ -1,0 +1,72 @@
+# Scan2Plan: test on every push / pull request, deploy to GitHub Pages only from main and only
+# when all tests pass (DEF-24).
+#
+# The offline file list (src/precache-list.js, incl. its content hash) is regenerated before the
+# tests and again before deploying. Uploading changed files through the GitHub web editor (which
+# cannot run Node) therefore still tests and deploys correctly, and installed apps see the update.
+name: Test and deploy
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-and-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Regenerate offline file list and build hash
+        run: node tools/gen-precache.mjs
+      - name: Install qpdf (used by QA PDF checks)
+        run: sudo apt-get update && sudo apt-get install -y qpdf
+      - run: npm test
+      - run: npm run test:qa
+      - name: Install WebKit for the browser tests
+        run: npx playwright install --with-deps webkit
+      - run: npx playwright test
+      - run: npm run smoke:qa
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate offline file list and build hash
+        run: node tools/gen-precache.mjs
+      - name: Collect the static app files
+        run: |
+          mkdir _site
+          cp -r index.html manifest.webmanifest sw.js icons src vendor _site/
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
