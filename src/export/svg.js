@@ -3,9 +3,10 @@
  * (`width="297mm" height="210mm" viewBox="0 0 297 210"`). Pure: no DOM.
  */
 
-/** Escapes XML text. */
+/** Escapes XML text and drops characters XML 1.0 forbids (C0 controls except tab/LF/CR, U+FFFE/F; DEF-17). */
 export function xmlEscape(s) {
-  return String(s).replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]);
+  // eslint-disable-next-line no-control-regex
+  return String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]);
 }
 
 const f = (v) => (Math.round(v * 1000) / 1000).toString();

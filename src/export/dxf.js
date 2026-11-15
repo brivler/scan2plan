@@ -72,8 +72,8 @@ export function drawingToDxf(drawing) {
   return out.join('\n') + '\n';
 }
 
-/** DXF R12 text: ASCII only; common German characters transliterated, others '?'. */
+/** DXF R12 text: ASCII only; common German characters transliterated, control characters → space (DEF-07), others '?'. */
 function dxfText(s) {
   const map = { ä: 'ae', ö: 'oe', ü: 'ue', Ä: 'Ae', Ö: 'Oe', Ü: 'Ue', ß: 'ss', '±': '%%p', '–': '-', '−': '-', '²': '2', '³': '3', '·': '-', '×': 'x' };
-  return [...s].map((c) => map[c] ?? (c.charCodeAt(0) < 128 ? c : '?')).join('');
+  return [...String(s)].map((c) => { const k = c.charCodeAt(0); return map[c] ?? (k < 32 || k === 127 ? ' ' : k < 128 ? c : '?'); }).join('');
 }

@@ -17,7 +17,7 @@ export const BACKUP_SCHEMA = 1;
 export async function exportGlb(mesh, opts = {}) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
-  if (mesh.colors) geo.setAttribute('color', new THREE.BufferAttribute(mesh.colors, 3, true));
+  if (mesh.colors) geo.setAttribute('color', new THREE.BufferAttribute(srgbToLinear(mesh.colors), 3)); // glTF COLOR_0 is linear (DEF-12)
   if (mesh.uvs && opts.texture) geo.setAttribute('uv', new THREE.BufferAttribute(mesh.uvs, 2));
   let obj;
   if (mesh.indices) {
@@ -35,6 +35,18 @@ export async function exportGlb(mesh, opts = {}) {
     exporter.register((writer) => ({ afterParse() { writer.json.asset.extras = opts.extras; } }));
   }
   return exporter.parseAsync(scene, { binary: true, onlyVisible: false });
+}
+
+/**
+ * sRGB bytes (as stored by the importer) → linear float colours for glTF COLOR_0.
+ * @param {Uint8Array} c
+ */
+export function srgbToLinear(c) {
+  const lut = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const v = i / 255; lut[i] = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+  const out = new Float32Array(c.length);
+  for (let i = 0; i < c.length; i++) out[i] = lut[c[i]];
+  return out;
 }
 
 /**

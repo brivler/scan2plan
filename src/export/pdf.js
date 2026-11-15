@@ -117,12 +117,14 @@ export function sheetToPdf(sheet, images = {}) {
     const cs = info.components === 1 ? '/DeviceGray' : info.components === 4 ? '/DeviceCMYK' : '/DeviceRGB';
     obj(imgIds[i], [`<< /Type /XObject /Subtype /Image /Width ${info.width} /Height ${info.height} /ColorSpace ${cs} /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.jpeg.length} >>\nstream\n`, img.jpeg, '\nendstream']);
   });
-  const count = 7 + usedImages.length;
+  const infoId = 7 + usedImages.length;
+  obj(infoId, '<< /Producer (Scan2Plan) >>'); // indirect /Info dictionary (ISO 32000 §7.5.5, DEF-11)
+  const count = infoId + 1;
   const xref = len;
   let x = `xref\n0 ${count}\n0000000000 65535 f \n`;
   for (let id = 1; id < count; id++) x += `${String(offsets[id]).padStart(10, '0')} 00000 n \n`;
   push(x);
-  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info << /Producer (Scan2Plan) >> >>\nstartxref\n${xref}\n%%EOF\n`);
+  push(`trailer\n<< /Size ${count} /Root 1 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   const out = new Uint8Array(len);
   let o = 0;
   for (const c of chunks) { out.set(c, o); o += c.length; }

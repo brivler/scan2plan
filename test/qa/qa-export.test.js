@@ -72,7 +72,7 @@ test('QA DXF of an elevation and a section parse (images dropped)', () => {
   }
 });
 
-test('QA DXF stays valid when a markup note contains a line break', { todo: 'DEF-07: newline in TEXT value breaks the group-code/value pairing' }, () => {
+test('QA DXF stays valid when a markup note contains a line break', () => {
   const note = { ...DEMO, note: 'Wand\nKüche' };
   const text = drawingToDxf(twoRoomPlan([note]));
   const lines = text.split('\n');
@@ -101,7 +101,7 @@ test('QA PDF with embedded RGB and greyscale JPEGs passes qpdf --check', { skip:
   }
 });
 
-test('QA PDF trailer /Info is an indirect reference (ISO 32000 §7.5.5)', { todo: 'DEF-11: /Info is written as a direct dictionary' }, () => {
+test('QA PDF trailer /Info is an indirect reference (ISO 32000 §7.5.5)', () => {
   const s = Buffer.from(sheetToPdf(sheetOf(twoRoomPlan()))).toString('latin1');
   assert.match(s, /\/Info \d+ 0 R/);
 });
@@ -146,7 +146,7 @@ test('QA SVG with images, markup and hostile text parses as XML and keeps mm uni
   assert.deepEqual(parseSvg(svg2).errors, []);
 });
 
-test('QA SVG stays well-formed with a control character in a name (e.g. from a pasted/restored name)', { todo: 'DEF-17: XML-forbidden control characters are not stripped' }, () => {
+test('QA SVG stays well-formed with a control character in a name (e.g. from a pasted/restored name)', () => {
   const svg = sheetToSvg(sheetOf(twoRoomPlan(), { project: 'Bad\u0001Name\u000B' }));
   // xmldom does not enforce the XML 1.0 Char production; expat/Safari do. Check it directly.
   // eslint-disable-next-line no-control-regex
