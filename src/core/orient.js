@@ -29,40 +29,68 @@ export function suggestUnitScale(bbox, format) {
   return { scale: null, warning: null, message: null };
 }
 
+/** Typical storey height used as the up-axis prior for OBJ/PLY (m), see IMPLEMENTATION_NOTES REQ-020. */
+const TYPICAL_HEIGHT = 2.5;
+const HEIGHT_MARGIN = 0.3;
+const PLAUSIBLE_HEIGHT = [1.8, 4.0];
+const FLIP_RATIO = 3;
+
 /**
- * Chooses the up axis for OBJ/PLY (REQ-020). Area of upward-facing faces in the lowest 20 %
- * along each candidate; if no candidate has any, faces facing either way count (closed meshes
- * with outward normals). Near-ties (within 5 %) resolve in the order +Y,+Z,+X,−Y,−Z,−X.
+ * Chooses the up axis for OBJ/PLY (REQ-020, revised for DEF-03).
+ * Default is +Y (ARKit / Scaniverse convention, spec §2.1). Another axis is chosen only on
+ * strong evidence: it has horizontal-looking faces at one of its ends and its extent is a
+ * clearly more typical storey height (≥ 0.3 m closer to 2.5 m than the Y extent), or Y has no
+ * such faces at all. The sign is the end whose faces point inwards/upwards; −Y only if its
+ * upward-facing area is at least 3× that of +Y.
  * @param {Float32Array} positions
  * @param {Uint32Array} indices
  * @returns {number[]} unit axis
  */
 export function chooseUpAxis(positions, indices) {
-  const axes = [[0, 1, 0], [0, 0, 1], [1, 0, 0], [0, -1, 0], [0, 0, -1], [-1, 0, 0]];
   const bb = computeBBox(positions);
   const { normals, areas, centroids } = faceData(positions, indices);
-  const up = new Float64Array(6), abs = new Float64Array(6);
-  axes.forEach((a, k) => {
-    const comp = a.findIndex((v) => v !== 0), sgn = a[comp];
-    const lo = sgn > 0 ? bb.min[comp] : -bb.max[comp];
-    const hi = sgn > 0 ? bb.max[comp] : -bb.min[comp];
-    const thr = lo + LOW_FRACTION * (hi - lo);
+  let total = 0;
+  for (let t = 0; t < areas.length; t++) total += areas[t];
+  const minArea = Math.min(MIN_FLOOR_AREA, 0.1 * total);
+  const stats = [0, 1, 2].map((c) => {
+    const lo = bb.min[c], hi = bb.max[c], ext = hi - lo;
+    const loThr = lo + LOW_FRACTION * ext, hiThr = hi - LOW_FRACTION * ext;
+    let atEnds = 0, upPos = 0, upNeg = 0;
     for (let t = 0; t < areas.length; t++) {
-      if (sgn * centroids[3 * t + comp] > thr) continue;
-      const d = sgn * normals[3 * t + comp];
-      if (d > UP_DOT) up[k] += areas[t];
-      if (Math.abs(d) > UP_DOT) abs[k] += areas[t];
+      const n = normals[3 * t + c], y = centroids[3 * t + c];
+      if (Math.abs(n) <= UP_DOT) continue;
+      const low = y <= loThr, high = y >= hiThr;
+      if (low || high) atEnds += areas[t];
+      if (low && n > 0) upPos += areas[t]; // faces the +axis from the low end
+      if (high && n < 0) upNeg += areas[t]; // faces the −axis from the high end
     }
+    return { ext, candidate: atEnds >= minArea && atEnds > 0, upPos, upNeg };
   });
-  const score = Math.max(...up) > 0 ? up : abs;
-  const best = Math.max(...score);
-  if (best <= 0) return [0, 1, 0];
-  const k = [...score].findIndex((s) => s >= best * 0.95);
-  return axes[k];
+  const Y = stats[1];
+  const dist = (e) => Math.abs(e - TYPICAL_HEIGHT);
+  let comp = 1;
+  const others = [2, 0].filter((c) => stats[c].candidate && stats[c].ext >= PLAUSIBLE_HEIGHT[0] && stats[c].ext <= PLAUSIBLE_HEIGHT[1]);
+  if (!Y.candidate && others.length) comp = others.sort((a, b) => dist(stats[a].ext) - dist(stats[b].ext))[0];
+  else {
+    for (const c of others) {
+      if (dist(stats[c].ext) + HEIGHT_MARGIN <= dist(Y.ext) && dist(stats[c].ext) < dist(stats[comp].ext)) comp = c;
+    }
+  }
+  const st = stats[comp];
+  let sign;
+  if (comp === 1) sign = st.upNeg > FLIP_RATIO * st.upPos && st.upNeg > 0 ? -1 : 1;
+  else sign = st.upNeg > st.upPos ? -1 : 1;
+  const axis = [0, 0, 0];
+  axis[comp] = sign;
+  return axis;
 }
 
 /**
  * Levels (tilt ≤ 5°) and sets floor to Y = 0 on positions that are already roughly +Y up.
+ * Robust against furniture (DEF-04): floor candidates are horizontal faces in the lowest 20 %;
+ * the dominant floor height is the mode of their area-weighted heights (2 cm bins); the plane
+ * is fitted to faces within ±5 cm of it and then refined twice on faces within 2 cm of the
+ * fitted plane, so beds, sofas and steps are excluded.
  * @param {Float32Array} positions world positions
  * @param {Uint32Array|null} indices
  * @returns {{delta:number[], hasFloor:boolean, tiltDeg:number, floorY:number}}
@@ -72,27 +100,48 @@ export function levelFloor(positions, indices) {
   if (!indices) return { delta: translation(0, -bb.min[1], 0), hasFloor: false, tiltDeg: 0, floorY: bb.min[1] };
   const { normals, areas, centroids } = faceData(positions, indices);
   const thr = bb.min[1] + LOW_FRACTION * (bb.max[1] - bb.min[1]);
-  const floor = [];
+  const cand = [];
   let area = 0;
   for (let t = 0; t < areas.length; t++) {
-    if (Math.abs(normals[3 * t + 1]) > UP_DOT && centroids[3 * t + 1] <= thr && areas[t] > 0) { floor.push(t); area += areas[t]; }
+    if (Math.abs(normals[3 * t + 1]) > UP_DOT && centroids[3 * t + 1] <= thr && areas[t] > 0) { cand.push(t); area += areas[t]; }
   }
   if (area < MIN_FLOOR_AREA) return { delta: translation(0, -bb.min[1], 0), hasFloor: false, tiltDeg: 0, floorY: bb.min[1] };
-  const n = fitPlaneNormal(positions, indices, floor, areas);
+  // dominant height (mode of 2 cm bins, ±1 bin smoothing)
+  const BIN = 0.02;
+  const nb = Math.max(1, Math.ceil((thr - bb.min[1]) / BIN) + 1);
+  const hist = new Float64Array(nb);
+  for (const t of cand) hist[Math.min(nb - 1, Math.floor((centroids[3 * t + 1] - bb.min[1]) / BIN))] += areas[t];
+  let best = 0, bestV = -1;
+  for (let i = 0; i < nb; i++) { const v = hist[i] + (hist[i - 1] || 0) + (hist[i + 1] || 0); if (v > bestV) { bestV = v; best = i; } }
+  const mode = bb.min[1] + (best + 0.5) * BIN;
+  let floor = cand.filter((t) => Math.abs(centroids[3 * t + 1] - mode) <= 0.05);
+  let plane = fitPlane(positions, indices, floor, areas);
+  for (let it = 0; it < 2; it++) {
+    const next = cand.filter((t) => Math.abs(centroids[3 * t + 1] - (plane.a * centroids[3 * t] + plane.b * centroids[3 * t + 2] + plane.c)) <= 0.02);
+    if (!next.length) break;
+    floor = next;
+    plane = fitPlane(positions, indices, floor, areas);
+  }
+  const n = plane.normal;
   const tiltDeg = Math.acos(Math.min(1, n[1])) / DEG;
   const rot = tiltDeg <= MAX_TILT_DEG ? rotationBetween(n, [0, 1, 0]) : identity();
   // Weighted median of rotated floor-face centroids.
+  let floorArea = 0;
   const ys = floor.map((t) => {
     const x = centroids[3 * t], y = centroids[3 * t + 1], z = centroids[3 * t + 2];
+    floorArea += areas[t];
     return { y: rot[1] * x + rot[5] * y + rot[9] * z + rot[13], w: areas[t] };
   }).sort((a, b) => a.y - b.y);
   let acc = 0, median = ys[ys.length - 1].y;
-  for (const s of ys) { acc += s.w; if (acc >= area / 2) { median = s.y; break; } }
+  for (const s of ys) { acc += s.w; if (acc >= floorArea / 2) { median = s.y; break; } }
   return { delta: multiply(translation(0, -median, 0), rot), hasFloor: true, tiltDeg: tiltDeg <= MAX_TILT_DEG ? tiltDeg : 0, floorY: median };
 }
 
-/** Area-weighted LSQ fit of y = a·x + b·z + c over the vertices of the given faces; returns unit normal with +Y component. */
-function fitPlaneNormal(positions, indices, faces, areas) {
+/**
+ * Area-weighted LSQ fit of y = a·x + b·z + c over the vertices of the given faces.
+ * @returns {{a:number, b:number, c:number, normal:number[]}} normal has a +Y component
+ */
+function fitPlane(positions, indices, faces, areas) {
   let sw = 0, mx = 0, my = 0, mz = 0;
   for (const t of faces) for (let k = 0; k < 3; k++) {
     const v = indices[3 * t + k] * 3, w = areas[t] / 3;
@@ -106,10 +155,10 @@ function fitPlaneNormal(positions, indices, faces, areas) {
     sxx += w * x * x; sxz += w * x * z; szz += w * z * z; sxy += w * x * y; szy += w * z * y;
   }
   const det = sxx * szz - sxz * sxz;
-  if (Math.abs(det) < 1e-18) return [0, 1, 0];
-  const a = (sxy * szz - szy * sxz) / det, b = (szy * sxx - sxy * sxz) / det;
+  let a = 0, b = 0;
+  if (Math.abs(det) >= 1e-18) { a = (sxy * szz - szy * sxz) / det; b = (szy * sxx - sxy * sxz) / det; }
   const l = Math.hypot(a, 1, b);
-  return [-a / l, 1 / l, -b / l];
+  return { a, b, c: my - a * mx - b * mz, normal: [-a / l, 1 / l, -b / l] };
 }
 
 /**

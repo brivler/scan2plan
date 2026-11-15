@@ -16,7 +16,7 @@ const NL = 10, CR = 13, SP = 32, TAB = 9, SLASH = 47;
  */
 export function parseOBJ(buffer, onProgress) {
   const b = new Uint8Array(buffer);
-  const pos = new Grow(Float32Array, 1 << 16);
+  const pos = new Grow(Float64Array, 1 << 16); // float64 until recentred (DEF-05)
   const col = new Grow(Uint8Array, 1 << 16);
   const idx = new Grow(Uint32Array, 1 << 16);
   let hasColor = false;

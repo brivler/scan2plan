@@ -147,7 +147,7 @@ function readPrimitive(ctx, prim, world) {
   if (![0, 4, 5, 6].includes(mode)) return null; // lines are ignored
   const pos = readAccessor(ctx, prim.attributes.POSITION).data;
   const nv = pos.length / 3;
-  const positions = new Float32Array(nv * 3);
+  const positions = new Float64Array(nv * 3); // world transform in float64 (DEF-05)
   for (let i = 0; i < nv; i++) {
     const x = pos[3 * i], y = pos[3 * i + 1], z = pos[3 * i + 2];
     positions[3 * i] = world[0] * x + world[4] * y + world[8] * z + world[12];

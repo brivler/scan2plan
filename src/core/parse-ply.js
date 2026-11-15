@@ -57,13 +57,16 @@ export function parsePLY(buffer) {
   const bytes = new Uint8Array(buffer);
   const { format, elements, bodyStart } = parseHeader(bytes);
   const vertexEl = elements.find((e) => e.name === 'vertex');
+  // Compressed splat PLY (SuperSplat/PlayCanvas): `element chunk` + `packed_*` vertex properties (DEF-15)
+  const isCompressedSplat = elements.some((e) => e.name === 'chunk') || (vertexEl && vertexEl.props.some((p) => p.name.startsWith('packed_')));
+  if (isCompressedSplat) throw new ImportError('E-IMP-03');
   if (!vertexEl || vertexEl.count === 0) throw new ImportError('E-IMP-07');
   const names = vertexEl.props.map((p) => p.name);
   if (SPLAT_PROPS.some((p) => names.includes(p))) throw new ImportError('E-IMP-03');
   if (!['x', 'y', 'z'].every((p) => names.includes(p))) throw new ImportError('E-IMP-07');
   const reader = format === 'ascii' ? asciiReader(bytes, bodyStart) : binaryReader(buffer, bodyStart, format === 'binary_little_endian');
   const nv = vertexEl.count;
-  const positions = new Float32Array(nv * 3);
+  const positions = new Float64Array(nv * 3); // float64 until recentred (DEF-05)
   const colIdx = ['red', 'green', 'blue'].map((c) => names.indexOf(c));
   const colIdx2 = ['diffuse_red', 'diffuse_green', 'diffuse_blue'].map((c) => names.indexOf(c));
   const cIdx = colIdx.every((k) => k >= 0) ? colIdx : colIdx2.every((k) => k >= 0) ? colIdx2 : null;

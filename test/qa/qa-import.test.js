@@ -34,7 +34,7 @@ test('QA real Scaniverse/3DGS splat PLY layout (binary, 62 props) → E-IMP-03',
   assert.equal(codeOf(() => importScan(binaryPly(SPLAT_PROPS, 10))), 'E-IMP-03');
 });
 
-test('QA compressed splat PLY (SuperSplat "packed_*" layout) → E-IMP-03', { todo: 'DEF-15: reports E-IMP-07 "no geometry" instead of the splat message' }, () => {
+test('QA compressed splat PLY (SuperSplat "packed_*" layout) → E-IMP-03', () => {
   const buf = binaryPly(['packed_position', 'packed_rotation', 'packed_scale', 'packed_color'], 4,
     'element chunk 1\nproperty float min_x\nproperty float min_y\nproperty float min_z\nproperty float max_x\nproperty float max_y\nproperty float max_z\n');
   assert.equal(codeOf(() => importScan(buf)), 'E-IMP-03');
@@ -91,7 +91,7 @@ test('QA REQ-005 diagonal vs longest side: recompute the spec example', () => {
   assert.equal(suggestUnitScale(computeBBox(box(60, 40, 3).positions), 'obj').scale, 0.01, 'expected (user can decline)');
 });
 
-test('QA georeferenced OBJ (UTM coordinates) keeps centimetre accuracy', { todo: 'DEF-05: Float32 storage quantises UTM coordinates (4.13 m → 4.00 m)' }, () => {
+test('QA georeferenced OBJ (UTM coordinates) keeps centimetre accuracy', () => {
   const m = box(4.13, 3.07, 2.5);
   const r = importScan(enc(toObj(m, [32500123.45, 100, 5500456.78])));
   const bb = computeBBox(r.mesh.positions);
@@ -102,14 +102,14 @@ test('QA georeferenced OBJ (UTM coordinates) keeps centimetre accuracy', { todo:
   near(assert, polylineLength(plan[0]), 14.4, 0.02, 'perimeter');
 });
 
-test('QA GLB with large node translation (georeferenced) keeps centimetre accuracy', { todo: 'DEF-05: world transform baked into Float32' }, () => {
+test('QA GLB with large node translation (georeferenced) keeps centimetre accuracy', () => {
   const r = importScan(makeGlb([{ ...box(4.13, 3.07, 2.5), translation: [500123.45, 0, 5500456.78], scale: [1, 1, 1] }]));
   const bb = computeBBox(r.mesh.positions);
   near(assert, bb.max[0] - bb.min[0], 4.13, 0.01, 'X extent');
   near(assert, bb.max[2] - bb.min[2], 3.07, 0.01, 'Z extent');
 });
 
-test('QA content sniffing beats extension; OBJ with long comment header', { todo: 'DEF-16: format sniffing only looks at the first 64 KB' }, () => {
+test('QA content sniffing beats extension; OBJ with long comment header', () => {
   assert.equal(detectFormat(new Uint8Array(enc('# exported\nmtllib a.mtl\nv 1 2 3\n'))), 'obj');
   const longHeader = `${'# comment line padding the header\n'.repeat(3000)}v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n`;
   assert.ok(longHeader.indexOf('v 0') > 65536, 'fixture: first vertex beyond 64 KB');

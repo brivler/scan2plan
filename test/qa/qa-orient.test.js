@@ -24,13 +24,13 @@ test('QA Y-up OBJ of a normal room (4×3×2.5, inward normals) stays upright', (
 });
 
 for (const [w, d, label] of [[2, 1.5, 'bathroom 2×1.5'], [5, 2, 'corridor 5×2'], [1.2, 1.0, 'WC 1.2×1.0']]) {
-  test(`QA Y-up OBJ of a ${label} m room stays upright`, { todo: 'DEF-03: a wall larger than the floor wins the up-axis vote' }, () => {
+  test(`QA Y-up OBJ of a ${label} m room stays upright`, () => {
     const m = room(w, d, 2.5);
     assert.deepEqual(chooseUpAxis(m.positions, m.indices), [0, 1, 0]);
   });
 }
 
-test('QA Y-up OBJ with partly scanned floor (60 %) is not turned upside down', { todo: 'DEF-03: ceiling area beats the visible floor → −Y chosen' }, () => {
+test('QA Y-up OBJ with partly scanned floor (60 %) is not turned upside down', () => {
   const m = room(4, 3, 2.5, { floorFraction: 0.6 });
   assert.deepEqual(chooseUpAxis(m.positions, m.indices), [0, 1, 0]);
 });
@@ -42,7 +42,7 @@ test('QA Z-up OBJ of a normal room is levelled (inward normals)', () => {
   near(assert, bb.min[1], 0, 0.001, 'floor at 0');
 });
 
-test('QA low furniture (bed top at 0.45 m) must not tilt the floor', { todo: 'DEF-04: LSQ plane over all horizontal faces in the lowest 20 % includes the bed' }, () => {
+test('QA low furniture (bed top at 0.45 m) must not tilt the floor', () => {
   const m = room(4, 3, 2.5, { bed: [0, 0, 2, 1.6, 0.45], n: 4 });
   const lv = levelFloor(m.positions, m.indices);
   assert.ok(lv.tiltDeg < 0.05, `tilt applied ${lv.tiltDeg.toFixed(2)}°`);

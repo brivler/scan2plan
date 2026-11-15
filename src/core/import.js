@@ -30,10 +30,22 @@ export function detectFormat(bytes) {
   }
   const lines = text.split(/\r?\n/);
   if (lines.some((l) => /^\s*v\s/.test(l))) return 'obj';
+  if (bytes.length > head.length && /^\s*(#|mtllib|vt|vn|o |g |s )/m.test(text) && hasObjVertexLine(bytes)) return 'obj'; // long OBJ header (DEF-16)
   const firstData = lines.find((l) => l.trim() && !/^\s*(#|\/\/)/.test(l));
   if (firstData && firstData.trim().split(/[\s,;]+/).slice(0, 3).filter((t) => t !== '' && Number.isFinite(Number(t))).length === 3) return 'xyz';
   if (!trimmed) throw new ImportError('E-IMP-07');
   throw new ImportError('E-IMP-01');
+}
+
+/**
+ * Scans the whole buffer for a line starting with "v " / "v\t" (OBJ vertex record).
+ * @param {Uint8Array} b
+ */
+function hasObjVertexLine(b) {
+  for (let i = 0; i + 1 < b.length; i++) {
+    if ((i === 0 || b[i - 1] === 10) && b[i] === 118 && (b[i + 1] === 32 || b[i + 1] === 9)) return true;
+  }
+  return false;
 }
 
 /**
@@ -42,7 +54,7 @@ export function detectFormat(bytes) {
  */
 export function parseXYZ(buffer) {
   const b = new Uint8Array(buffer);
-  const pos = new Grow(Float32Array, 1 << 16);
+  const pos = new Grow(Float64Array, 1 << 16);
   const num = { v: 0, end: 0 };
   let i = 0;
   while (i < b.length) {
@@ -83,7 +95,34 @@ export function importScan(buffer, onProgress) {
     throw new ImportError('E-IMP-02', e && e.message);
   }
   validateMesh(res.mesh, res.kind);
-  return { mesh: res.mesh, kind: res.kind, format, extras: res.extras || null };
+  const origin = recenter(res.mesh);
+  return { mesh: res.mesh, kind: res.kind, format, extras: res.extras || null, origin };
+}
+
+/** Coordinates beyond this magnitude (m) are recentred before the float32 conversion. */
+export const RECENTER_LIMIT = 10_000;
+
+/**
+ * Converts parsed float64 positions to float32 (DEF-05). Axes whose coordinates exceed
+ * ±10 km (georeferenced scans, e.g. UTM) are first shifted by a whole-metre origin, so
+ * centimetre precision survives (float32 has ~0.5 m resolution at 5·10⁶ m).
+ * @param {{positions: Float32Array|Float64Array}} mesh modified in place
+ * @returns {number[]} origin subtracted per axis (zeros for normal scans)
+ */
+export function recenter(mesh) {
+  const p = mesh.positions;
+  const origin = [0, 0, 0];
+  for (let k = 0; k < 3; k++) {
+    let lo = Infinity, hi = -Infinity;
+    for (let i = k; i < p.length; i += 3) { if (p[i] < lo) lo = p[i]; if (p[i] > hi) hi = p[i]; }
+    if (Math.max(Math.abs(lo), Math.abs(hi)) > RECENTER_LIMIT) origin[k] = Math.round((lo + hi) / 2);
+  }
+  const out = new Float32Array(p.length);
+  for (let i = 0; i < p.length; i += 3) {
+    out[i] = p[i] - origin[0]; out[i + 1] = p[i + 1] - origin[1]; out[i + 2] = p[i + 2] - origin[2];
+  }
+  mesh.positions = out;
+  return origin;
 }
 
 /** Throws on empty geometry, non-finite values or size limits. */

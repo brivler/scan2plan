@@ -46,16 +46,6 @@ export function computeBBox(positions) {
   return { min, max };
 }
 
-/** @param {{min:number[],max:number[]}} b */
-export function bboxDiagonal(b) {
-  return Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]);
-}
-
-/** @param {{indices: Uint32Array|null}} mesh */
-export function triangleCount(mesh) {
-  return mesh.indices ? mesh.indices.length / 3 : 0;
-}
-
 /**
  * Applies a column-major 4×4 matrix to all positions, returning new positions.
  * @param {Float32Array} positions
@@ -99,7 +89,7 @@ export function faceData(positions, indices) {
 }
 
 /**
- * Merges several meshes into one indexed mesh. Colors/UVs are kept if any part has them
+ * Merges several meshes into one indexed mesh (float64 positions stay float64). Colors/UVs are kept if any part has them
  * (missing parts get grey / zero UVs).
  * @param {Array<{positions:Float32Array, indices:Uint32Array|null, colors?:Uint8Array, uvs?:Float32Array}>} parts
  */
@@ -108,7 +98,7 @@ export function mergeMeshes(parts) {
   const anyColors = parts.some((p) => p.colors), anyUvs = parts.some((p) => p.uvs);
   const isPoints = parts.every((p) => !p.indices);
   for (const p of parts) { nv += p.positions.length / 3; ni += p.indices ? p.indices.length : 0; }
-  const positions = new Float32Array(nv * 3);
+  const positions = new (parts.some((p) => p.positions instanceof Float64Array) ? Float64Array : Float32Array)(nv * 3);
   const indices = isPoints ? null : new Uint32Array(ni);
   const colors = anyColors ? new Uint8Array(nv * 3).fill(176) : undefined;
   const uvs = anyUvs ? new Float32Array(nv * 2) : undefined;

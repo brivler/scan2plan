@@ -96,18 +96,6 @@ export function applyToPoint(m, p) {
   ];
 }
 
-/** Transforms a direction (ignores translation; not renormalized). */
-export function applyToDir(m, v) {
-  const [x, y, z] = v;
-  return [m[0] * x + m[4] * y + m[8] * z, m[1] * x + m[5] * y + m[9] * z, m[2] * x + m[6] * y + m[10] * z];
-}
-
-/** @returns {boolean} whether m is the identity within eps */
-export function isIdentity(m, eps = 1e-12) {
-  const id = identity();
-  return m.every((v, i) => Math.abs(v - id[i]) <= eps);
-}
-
 /** @param {number[]} a @param {number[]} b */
 export function cross(a, b) {
   return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
