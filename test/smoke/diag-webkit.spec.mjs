@@ -12,6 +12,7 @@ for (let i = 1; i <= 6; i++) {
       navigator.serviceWorker?.addEventListener('controllerchange', () => window.__log.push(`controllerchange ${(performance.now() - t0).toFixed(0)}`));
     });
     page.on('console', (m) => console.log(`#${i} [browser ${m.type()}] ${m.text()}`));
+    page.on('framenavigated', (f) => { if (f === page.mainFrame()) console.log(`#${i} [nav] ${f.url()}`); });
     page.on('pageerror', (e) => console.log(`#${i} [pageerror] ${e.message}`));
     const t0 = Date.now();
     await page.goto('./');

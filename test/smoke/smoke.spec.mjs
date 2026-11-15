@@ -11,6 +11,7 @@ test.beforeEach(async ({ context, page }) => {
   // Diagnostics for CI (WebKit runs only there): browser console and page errors in the log.
   page.on('console', (m) => console.log(`[browser ${m.type()}] ${m.text()}`));
   page.on('pageerror', (e) => console.log(`[pageerror] ${e.message}`));
+  page.on('framenavigated', (f) => { if (f === page.mainFrame()) console.log(`[nav] ${f.url()}`); });
   page.on('worker', (w) => { console.log(`[worker created] ${w.url()}`); w.on('close', () => console.log('[worker closed]')); });
   // Capture Web Share calls instead of opening the share sheet.
   await context.addInitScript(() => {

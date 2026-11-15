@@ -72,28 +72,33 @@ async function boot() {
   registerServiceWorker(app);
 }
 
-/** Registers sw.js, checks for updates at launch and shows the update banner (never auto-reloads). */
+/**
+ * Registers sw.js, checks for updates at launch and shows the update banner (never auto-reloads).
+ * On a first visit (no controller yet) nothing is offered: the first install is not an update,
+ * and WebKit may report its `installed` state after `clients.claim()` already set a controller.
+ * The page reloads only after the user tapped Reload.
+ */
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   const banner = document.getElementById('update-banner');
+  const hadController = !!navigator.serviceWorker.controller;
+  let userRequestedReload = false;
   navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' }).then((reg) => {
+    if (!hadController) return; // first install: no update check, no banner
     if (navigator.onLine !== false) reg.update().catch(() => {}); // no failed request when offline (REQ-013)
     const offer = (worker) => {
       banner.hidden = false;
-      document.getElementById('update-reload').onclick = () => worker.postMessage('SKIP_WAITING');
+      document.getElementById('update-reload').onclick = () => { userRequestedReload = true; worker.postMessage('SKIP_WAITING'); };
     };
-    if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);
+    if (reg.waiting) offer(reg.waiting);
     reg.addEventListener('updatefound', () => {
       const w = reg.installing;
-      w?.addEventListener('statechange', () => {
-        if (w.state === 'installed' && navigator.serviceWorker.controller) offer(w);
-      });
+      w?.addEventListener('statechange', () => { if (w.state === 'installed') offer(w); });
     });
   }).catch((e) => console.warn('Service worker registration failed', e));
-  let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading || banner.hidden) return; // only after the user tapped Reload
-    reloading = true;
+    if (!userRequestedReload) return;
+    userRequestedReload = false;
     location.reload();
   });
 }
