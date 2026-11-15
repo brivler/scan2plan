@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Scan2Plan">
+  <meta name="theme-color" content="#1f2a36">
+  <meta name="description" content="Turn LiDAR scans into floor plans, sections and excavation volumes — offline on your iPhone.">
+  <title>Scan2Plan</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="stylesheet" href="src/app/app.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <h1 id="title">Scan2Plan</h1>
+    <div class="topbar-actions" id="topbar-actions"></div>
+  </header>
+  <div id="update-banner" class="banner" hidden>
+    <span>Update available</span>
+    <button type="button" id="update-reload" class="btn primary">Reload</button>
+  </div>
+  <main id="main">
+    <section id="view-projects" class="view" data-view="projects"></section>
+    <section id="view-3d" class="view" data-view="3d" hidden></section>
+    <section id="view-plan" class="view" data-view="plan" hidden></section>
+    <section id="view-views" class="view" data-view="views" hidden></section>
+    <section id="view-terrain" class="view" data-view="terrain" hidden></section>
+  </main>
+  <nav class="tabbar" aria-label="Main">
+    <button type="button" class="tab" data-tab="projects" aria-label="Projects"></button>
+    <button type="button" class="tab" data-tab="3d" aria-label="3D view"></button>
+    <button type="button" class="tab" data-tab="plan" aria-label="Floor plan"></button>
+    <button type="button" class="tab" data-tab="views" aria-label="Sections and elevations"></button>
+    <button type="button" class="tab" data-tab="terrain" aria-label="Terrain and excavation"></button>
+  </nav>
+  <div id="overlay-root"></div>
+  <noscript>Scan2Plan needs JavaScript.</noscript>
+  <script type="module" src="src/app/main.js"></script>
+</body>
+</html>

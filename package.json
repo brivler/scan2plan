@@ -1,0 +1,22 @@
+{
+  "name": "scan2plan",
+  "version": "1.0.0",
+  "description": "Offline PWA: LiDAR scan to floor plans, sections, renovation markup and excavation volumes",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "coverage": "node --test --experimental-test-coverage test/*.test.js",
+    "precache": "node tools/gen-precache.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "fixtures": "node tools/make-fixtures.mjs",
+    "smoke": "playwright test",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "fake-indexeddb": "^6.2.8",
+    "three": "0.187.0"
+  },
+  "type": "module",
+  "private": true
+}
