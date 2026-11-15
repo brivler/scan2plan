@@ -2,7 +2,14 @@
 
 QA agent · 2026-11-15 · commit under test `5e2ef95` · spec `docs/REQUIREMENTS.md` v1.0
 
-## 1. Verdict
+> **Re-verification (round 2, commit `c4028f3`): see §8.** All 18 round-1 defects verified fixed
+> except DEF-10. That one is partly fixed: the WebKit CI job exists but has never run. No
+> regressions. 5 new MINOR defects (DEF-20…24). Counts now 53 PASS · 1 PARTIAL · 0 FAIL ·
+> 3 not implemented (COULD). **Verdict: go for the owner's iPhone acceptance test (§8.6),
+> on condition that the first GitHub Actions run of the WebKit job passes.**
+> §1–§7 below are the round-1 report, kept unchanged for traceability.
+
+## 1. Verdict (round 1)
 
 **Not ready to release as-is. Two BLOCKERs must be fixed first. Both are small, local fixes.**
 
@@ -388,3 +395,206 @@ In addition to spec §9:
     markup intact; background the app for a while → 3D view is not blank on return (DEF-14).
 16. [ ] **Update:** after a new deploy (with a version bump), the "Update available — Reload"
     banner appears and nothing reloads by itself during editing.
+
+---
+
+## 8. Re-verification (round 2)
+
+QA agent · 2026-11-15 · commits under test `ceae9f0`, `892dc74`, `30991de`, `c4028f3` (HEAD `c4028f3`)
+
+### 8.1 What was run
+
+| Item | Result |
+|---|---|
+| `npm test` (coder suite) | **84/84** pass (3 new coder tests) |
+| `npm run test:qa` (round-1 QA suite + new `qa-reverify.test.js`) | **69 tests: 65 pass, 4 `todo`** (= new MINOR DEF-20, DEF-21), 0 failures |
+| Smoke `npx playwright test` (Chrome; WebKit still not installable here, the proxy blocks Playwright's download hosts) | **3/3** (now split into `offline`, `orbit`, `layout 390`) |
+| `npm run smoke:qa` (round-1 UI spec + new `qa-reverify.spec.mjs`, Chrome) | **14/14** |
+| `actionlint` 1.7.12 on both workflows | 0 errors (the shellcheck sub-rule was unavailable) |
+| Coverage `src/core` + `src/export` | Unchanged; aggregate ≥ 80 % |
+
+**Were the QA tests weakened?** No. `git diff 4e55cb4..c4028f3 -- test/qa/` shows only the 14
+`todo` markers and the one `test.fail` marker removed. No assertion, fixture or tolerance changed.
+The coder's own test changes add tests. One assertion changed by design: a restored calibration
+is now `{factor: 1, refCm, baked: 1.01}`. The smoke-test split kept every assertion of the old
+single test.
+
+### 8.2 Per-defect verification
+
+New adversarial tests are in `test/qa/qa-reverify.test.js` (Node) and
+`test/qa/qa-reverify.spec.mjs` (browser).
+
+| DEF | Sev | Status | Evidence |
+|---|---|---|---|
+| DEF-01 | BLOCKER | **VERIFIED** | Root cause fixed: calibration is stored as `{factor, refCm, baked}` (`store/backup.js`, `Session.setCalibration`), so the transform only ever carries `factor`. New test `DEF-01 r2: calibrate → backup → restore → recalibrate → backup → restore → reopen` passes: stored scale 1, mesh = 4 × 1.02 × 1.01, `baked` accumulates (1.0302), title text correct, markup stays on the wall. `DEF-01 r2: undo … Reset keeps baked info` also passes. |
+| DEF-02 | BLOCKER | **VERIFIED** | `restoreOpenSession` reloads the open project whenever an import or open does not end in a new session. Browser tests at every stage: name-prompt Cancel, Cancel while parsing a 1 M-triangle OBJ, parse error (splat), damaged backup (fails after parsing), Cancel while opening another large project. After each, Room A's freshly computed plan shows 400, and **the Backup file's mesh is 4×3 m and named Room A**. New related finding: DEF-22. |
+| DEF-03 | MAJOR | **VERIFIED** (with accepted deviation, §8.3) | Bathroom, WC, corridor and 60 % floor cases now pass. Typical German rooms 2.40–2.80 m: **0 of 6,630** sizes wrong. Residual limits: DEF-20. |
+| DEF-04 | MAJOR | **VERIFIED** for the reported case | Bed 0.45 m: 0.00°. Furniture on 40 % of the floor, 30 % at 0.75 m, sloped floors of 3° and 4.5° with furniture, ±8 mm noise, 17 cm step: tilt correct within 0.05°, floor within 1 cm. Residual limits: DEF-21. |
+| DEF-05 | MAJOR | **VERIFIED** | Float64 parsing plus whole-metre re-centring beyond ±10 km. New tests: UTM OBJ → plan → DXF (true 4.13 × 3.07 m, local coordinates < 100 m); binary-double PLY gives the same origin on re-import (reopen is deterministic); UTM terrain excavation 6.00 m³ (analytic) with 100 % coverage. Note: exports are in the shifted local frame, and `origin` is not written into backups. Acceptable, since the spec requires no world coordinates. |
+| DEF-06 | MINOR | VERIFIED | `scaleAnnotations` runs inside the same undo step; checked in the DEF-01 chain test (markup follows two calibrations and restores). Scanned heights scale; entered thickness and excavation levels do not (correct). |
+| DEF-07 | MINOR | VERIFIED | `qa-export › DXF stays valid when a markup note contains a line break` |
+| DEF-08 | MINOR | VERIFIED | `S2P_BUILD` content hash in the cache name; `pwa › precache complete` fails when stale; `updateViaCache: 'none'`; Pages workflow regenerates the list. Workflow notes: DEF-24. |
+| DEF-09 | MINOR | VERIFIED | Views has Save for measurements (drawn and exported, `section › saved view measurements appear in the drawing`) and a Redo button. The 300 ms raycast stays on the device checklist. |
+| DEF-10 | MINOR | **PARTLY FIXED / not verifiable here** | Smoke test split into the §7 names; `layout 390` covers every tab. The WebKit job is in `ci.yml` but has never run. Confirm with the first GitHub Actions run. |
+| DEF-11 | MINOR | VERIFIED | `qa-export › /Info is an indirect reference`; `qpdf --check` clean |
+| DEF-12 | MINOR | VERIFIED | `qa-worker-session › vertex colours survive a GLB round trip` (128 → 128) |
+| DEF-13 | MINOR | VERIFIED (code review) | Thumbnail URLs revoked; overlay, section-line and wire geometry/materials disposed; Views cache is an LRU of 3 |
+| DEF-14 | MINOR | VERIFIED (code review; device check) | `88dvh` with `88vh` fallback; context-loss `preventDefault` and redraw on restore |
+| DEF-15 | MINOR | VERIFIED | `qa-import › compressed splat PLY → E-IMP-03` |
+| DEF-16 | MINOR | VERIFIED | `qa-import › OBJ with long comment header` |
+| DEF-17 | MINOR | VERIFIED | `qa-export › control character` |
+| DEF-18 | MINOR | VERIFIED | Browser test `DEF-18 r2`: a textured GLB is backed up with texture and UVs, and the backup restores through the UI. Note: the texture is re-encoded as JPEG on every backup (some generational quality loss), and decoding a 4096² texture on iPhone needs about 64 MB transiently. Added to the device checklist. |
+
+**Regressions:** none found. All 84 coder and 69 QA Node tests pass, as do all 17 browser tests.
+I re-swept the full requirements table (§8.4).
+
+### 8.3 Judgement: new REQ-020 algorithm and the tall-room limitation
+
+The coder replaced the spec's up-axis vote with a prior: default +Y, and switch only to an axis
+whose extent is a *clearly more typical storey height* (≥ 0.3 m closer to 2.5 m). Floor
+detection now uses the height mode with an inlier refit. I quantified the new rule on 1 m–6 m
+rooms in 0.1 m steps (inward normals):
+
+| Case (OBJ/PLY only; GLB is always +Y) | Wrong up axis | Hint shown? |
+|---|---|---|
+| Y-up, ceiling 2.40–2.80 m (German new builds, typical post-war stock) | **0 %** (0/6,630) | n/a |
+| Y-up Altbau, ceiling 3.00 m | 11.3 % of sizes (a side of 2.3–2.7 m) | yes, 6 s toast |
+| Y-up Altbau, ceiling 3.20 m | 25.3 % | yes |
+| Y-up Altbau, ceiling 3.50 m | 44.1 % | yes |
+| Y-up, ceiling not scanned (walls only to 2.0 m) | 11.3 % | yes |
+| Floor visible on ≤ 30 % of its area (3× rule) | flips to −Y | yes |
+| **Z-up** OBJ (from desktop tools), side 2.2–2.8 m | 25.2 % stay sideways | **no** (axis stays +Y) |
+| Y-up **facade** OBJ, 6 m tall with a 3 m ground strip | turned sideways | yes |
+
+**Judgement: acceptable for release.** Reasons:
+
+1. The spec's own algorithm is demonstrably wrong for interior scans (round 1), so a deviation
+   is necessary. This one is well-reasoned and documented.
+2. The primary path (Scaniverse GLB, §3 workflow) never uses it.
+3. For typical German ceiling heights, the error rate on OBJ/PLY is zero.
+4. The failure is obvious in the 3D view, and *Orient → Up = …* fixes it in one tap. Except for
+   Z-up and facade inputs, a hint names the detected axis.
+
+Altbau is common in Germany, so the owner should use GLB (as the help already recommends).
+
+Residual items worth fixing in a later release are filed as DEF-20 and DEF-21. The spec author
+should replace the REQ-020 up-axis paragraph with the implemented rule.
+
+### 8.4 Requirement table, round 2 (changes only; all other rows unchanged from §4)
+
+| REQ | Round 1 | Round 2 | Reason |
+|---|---|---|---|
+| REQ-004 | PARTIAL | **PASS** | DEF-02 verified. DEF-22 is minor: state stays consistent. |
+| REQ-012 | FAIL | **PASS** | DEF-01 and DEF-18 verified |
+| REQ-020 | PARTIAL | **PASS** (accepted deviation, §8.3) | DEF-03 and DEF-04 verified; acceptance tests pass; residual DEF-20, 21, 23 are minor |
+| REQ-030 | PARTIAL | **PASS** | DEF-09: Views measurements can be saved; raycast timing on device |
+| REQ-090 | PARTIAL | PARTIAL | WebKit job not yet run (DEF-10) |
+
+**Counts (57): PASS 53 · PARTIAL 1 (REQ-090) · FAIL 0 · not implemented 3 (REQ-007, 018, 048; COULD).**
+
+### 8.5 New defects (round 2)
+
+**DEF-20 · MINOR · REQ-020: residual up-axis misdetection for OBJ/PLY (see §8.3 table).**
+- Z-up files with a horizontal side near 2.5 m stay sideways *without* a hint.
+- Y-up facade OBJs with a 2.5–3 m ground strip are turned sideways.
+- Altbau rooms (3.0–3.5 m) with a side near 2.5 m are turned sideways (hint shown).
+- The hint is a 6-second toast, shown only when the axis is not +Y.
+
+*Tests:* `qa-reverify › Z-up OBJ with a horizontal side near 2.5 m`, `› Y-up facade OBJ`
+(`todo`); `› tall-room limitation, quantified` guards the documented envelope.
+*Fix:* after every OBJ/PLY import, show a persistent "Check orientation" card with one-tap
+Up = buttons. Do not count an axis as a storey candidate when its "horizontal-looking" faces at
+the ends are the scan's ground plane (they face +Y).
+
+**DEF-21 · MINOR · REQ-020: floor levelling residuals.**
+- Flat low objects 1–6 cm high (rugs, mats, platforms) covering ≥ 20 % of the floor fall inside
+  the ±5 cm / 2 cm inlier bands and are fitted as slope. A 2 cm rug on 40 % of the floor gives
+  0.33° (≈ 3 cm over 5 m) and lifts the floor 2.3 cm; a 6 cm platform gives about 1°.
+- Flat furniture tops covering > 50 % of the floor at one height are taken as the floor
+  (floor set 45 cm too high).
+
+*Tests:* `qa-reverify › flat low object…`, `› furniture tops covering > 50 %…` (`todo`).
+*Fix:* seed the fit from the *lowest* height cluster holding ≥ 15–20 % of candidate area, use a
+±1 cm band, and reject a tilt when the residuals are bimodal (a step rather than a slope).
+
+**DEF-22 · MINOR · REQ-004: Cancel is ignored while the file or the stored source is still being read.**
+`importFile` and `openProject` (`app/projects-view.js:124-131, 203-212`) set `cancelled = true`
+and restart the worker, but do not check the flag after `await file.arrayBuffer()` /
+`getProject()`. The load is then posted to the new worker and the import or open continues.
+State stays consistent, so this is not a DEF-02 regression. But on an iPhone, reading a
+100–300 MB file takes seconds, and Cancel appears not to work. Reproduced in
+`qa-reverify.spec › Cancel while opening another (large) project` (recorded as a DEF-22
+annotation). *Fix:* `if (cancelled) return false;` after each `await` before posting `load`.
+
+**DEF-23 · MINOR · REQ-020/040: orientation changes after markup do not move annotations.**
+This is the counterpart of DEF-06. *Rotate 90°*, *Align to tapped wall*, *Tap floor to level*,
+*Set ±0.00* and *Up = …* (`viewer3d.js` `applyOrientation`) change the transform, but markup,
+sections, measurements and excavations stay in the old plan frame. Pre-existing, not found in
+round 1. *Fix:* apply the yaw/translation delta to annotations in the same undo step, or warn
+before reorienting a project that has annotations.
+
+**DEF-24 · MINOR · REQ-071/090: GitHub Actions workflow hardening (static review).**
+- `ci.yml` has no `permissions:` block (add `contents: read`).
+- `ci.yml` runs `apt-get install qpdf` without `apt-get update` first, which can fail on a stale
+  runner package index.
+- `pages.yml` deploys on every push to `main` without waiting for the Tests workflow, so a red
+  build still goes live. Gate it with `workflow_run` on *Tests* succeeding, or make deploy a job
+  that `needs` the tests.
+- A browser-only upload that changes app files leaves the committed `S2P_BUILD` stale. The Tests
+  run then fails `pwa › precache complete` even though Pages regenerates the list correctly.
+  Document this, or regenerate in CI before testing.
+
+The rest is correct: Pages `permissions` (`pages: write`, `id-token: write`), `concurrency`,
+the `github-pages` environment, `configure-pages@v5` / `upload-pages-artifact@v3` /
+`deploy-pages@v4`, the copied file set matches the precache roots, and the README's
+"Source: GitHub Actions" step is documented.
+
+### 8.6 Final release verdict
+
+**GO for the owner's iPhone acceptance test.** No BLOCKER or MAJOR defects remain open; the
+remaining 6 items are MINOR (DEF-10 partly, DEF-20…24).
+
+Conditions and recommendations:
+1. Push to GitHub and confirm that the *Tests* workflow, including the WebKit smoke and QA
+   browser suites, is green. That run closes REQ-090 / DEF-10. If WebKit fails there, treat it
+   as a blocker until analysed.
+2. Fix DEF-22 (two lines) and the DEF-24 workflow items before or with the first deploy.
+3. Use **GLB** from Scaniverse (the documented workflow). The OBJ/PLY orientation residuals
+   (DEF-20/21) then do not apply.
+
+### 8.7 Final real-iPhone checklist (owner)
+
+Replaces §7.
+
+1. [ ] **Deploy:** push → *Actions*: *Tests* green (WebKit) and *Deploy to GitHub Pages* green
+   → open `https://<user>.github.io/scan2plan/` in Safari.
+2. [ ] **Install and offline:** Share → Add to Home Screen → launches standalone. Airplane mode
+   → cold start ≤ 2 s, project list shown.
+3. [ ] **Files picker:** `.glb`, `.obj` and `.ply` in *On My iPhone* and *iCloud Drive* are
+   selectable.
+4. [ ] **Import timing:** Scaniverse GLB of one room (≤ 300k triangles) imported and oriented in
+   ≤ 4 s; a ~1 M-triangle file in ≤ 10 s. A > 100 MB file shows the warning; no "A problem
+   repeatedly occurred" reload with ~2 M triangles.
+5. [ ] **Cancel:** with a project open, import a large file and tap Cancel early and late. The
+   app stays usable and the open project's Plan is unchanged. (Early Cancel may be ignored:
+   DEF-22.)
+6. [ ] **3D:** ≥ 30 fps orbit on 500k triangles; orbit, pan, pinch and double-tap work; Measure
+   taps respond in < 300 ms; the texture shows the right way up.
+7. [ ] **Orientation:** floor level and walls aligned in your real rooms, including one with a
+   bed or sofa. In an Altbau room, check the GLB import; if you ever use OBJ, check the hint and
+   *Up = …*.
+8. [ ] **Calibration:** calibrate on 100.0 cm and re-measure a taped wall (≤ 2 cm deviation).
+   Then Backup → delete → restore → reopen → re-measure the same wall (same value) and check
+   the markup is still on its walls.
+9. [ ] **Textured backup:** the restored project shows the texture (not grey); a large texture
+   does not crash the backup.
+10. [ ] **Share sheet:** PDF/SVG/DXF/GLB/CSV/Backup open the share sheet; *Save to Files* works.
+11. [ ] **Print:** PDF A4 1:50 at 100 % → a 4.00 m wall measures 80 mm ± 0.5 mm.
+12. [ ] **DXF:** opens in a free CAD viewer with the 8 layers, metres, and DASHED demolition.
+13. [ ] **Number inputs:** cut height and calibration accept "1,10" from the German keyboard.
+14. [ ] **Layout:** safe areas in portrait and landscape; bottom sheets fully visible in Safari
+    (non-standalone); dark mode.
+15. [ ] **Persistence and background:** kill → reopen → project and markup intact. Leave the
+    app in the background for a while → the 3D view is redrawn, not blank.
+16. [ ] **Update:** push a trivial change (no version bump) → after the Pages deploy the app
+    shows "Update available — Reload", and nothing reloads by itself during editing.
