@@ -9,12 +9,15 @@
     "icons": "node tools/make-icons.mjs",
     "fixtures": "node tools/make-fixtures.mjs",
     "smoke": "playwright test",
-    "serve": "python3 -m http.server 8080"
+    "serve": "python3 -m http.server 8080",
+    "test:qa": "node --test test/qa/*.test.js",
+    "smoke:qa": "playwright test -c test/qa/playwright.qa.config.mjs"
   },
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.65.1",
     "@xmldom/xmldom": "^0.9.12",
+    "dxf-parser": "^1.1.2",
     "fake-indexeddb": "^6.2.8",
     "three": "0.187.0"
   },
